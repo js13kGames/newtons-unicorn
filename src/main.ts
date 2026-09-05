@@ -2,7 +2,7 @@
 import { W, H, drawBg, drawBeams, drawElements, drawTargets, mixColor } from './render.ts';
 import { drawHud, drawScreens, drawParticles, spawnBurst, drawSkyRainbow, txt } from './ui.ts';
 import { G, TITLE, PLAY, SOLVED, load, loadLevel, goto, checkSolved, advance } from './state.ts';
-import { initInput, rotate } from './input.ts';
+import { initInput, tick } from './input.ts';
 import { trace } from './trace.ts';
 import { applySolution, TARGET, EMITTER } from './elements.ts';
 import { LEVELS } from './levels.ts';
@@ -32,7 +32,7 @@ function frame(ms: number) {
   G._t = t;
   const s = G._scr, inWorld = s >= PLAY, last = G._li === LEVELS.length - 1;
   if (G._start !== prevStart) { prevStart = G._start; if (inWorld) sfx(SFX_WHOOSH); }
-  if (G._hold && G._sel) rotate(G._sel, G._hold * dt * 75);
+  tick(dt);
   G._rays = trace(G._els, last ? 24 : 16);
   let mask = 0;
   if (inWorld) for (const e of G._els) if (e._t === TARGET) {
@@ -40,7 +40,7 @@ function frame(ms: number) {
     if (e._ok) mask |= e._h;
     if (st !== e._w) {
       if (e._ok) spawnBurst(e._x, e._y, mixColor(e._h));
-      else if (e._h && s === PLAY && t - lastWrong > 0.3) { lastWrong = t; sfx(SFX_WRONG); }
+      else if (e._h && s === PLAY && t - G._since > 0.2 && t - lastWrong > 0.3) { lastWrong = t; sfx(SFX_WRONG); } // not on the level's first frames
       e._w = st;
     }
   }
@@ -52,7 +52,7 @@ function frame(ms: number) {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
   const v = G._view;
   ctx.setTransform(dpr * v[0], 0, 0, dpr * v[0], v[1] * dpr, v[2] * dpr);
-  drawBg(ctx);
+  drawBg(ctx, Math.min(3, dpr * v[0]));
   if (last && s > PLAY) drawSkyRainbow(ctx, Math.min(1, (t - G._since) / 2 + (s > SOLVED ? 1 : 0)));
   drawBeams(ctx, G._rays, t);
   drawElements(ctx, G._els, inWorld ? G._sel : undefined, t);

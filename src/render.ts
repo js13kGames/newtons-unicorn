@@ -23,14 +23,16 @@ export function mixColor(mask: number): number[] {
 /** Tiny deterministic RNG (LCG) so the star field is identical every frame/run. */
 export const rng = (seed: number) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
-let bgCache: HTMLCanvasElement | undefined;
+let bgCache: HTMLCanvasElement | undefined, bgK = 0;
 
-/** Background: midnight gradient, stars, hills, grass line. Rendered once to an offscreen canvas. */
-export function drawBg(ctx: Ctx) {
-  if (!bgCache) {
+/** Background: midnight gradient, stars, hills, grass line. Cached offscreen at device resolution `k` (redrawn when it changes). */
+export function drawBg(ctx: Ctx, k: number) {
+  if (!bgCache || k !== bgK) {
+    bgK = k;
     bgCache = document.createElement('canvas');
-    bgCache.width = W; bgCache.height = H;
+    bgCache.width = W * k; bgCache.height = H * k;
     const c = bgCache.getContext('2d')!;
+    c.scale(k, k);
     const g = c.createRadialGradient(W / 2, H * 0.9, 50, W / 2, H * 0.5, 700);
     g.addColorStop(0, '#1a1746'); g.addColorStop(1, '#05040d');
     c.fillStyle = g; c.fillRect(0, 0, W, H);
@@ -54,7 +56,7 @@ export function drawBg(ctx: Ctx) {
     for (let x = 0; x < W; x += 6) { c.moveTo(x, H - 22); c.lineTo(x + (r() - 0.5) * 6, H - 26 - r() * 8); }
     c.stroke();
   }
-  ctx.drawImage(bgCache, 0, 0);
+  ctx.drawImage(bgCache, 0, 0, W, H);
 }
 
 /** Beams: additive, three passes per band polyline (glow / body / core). */

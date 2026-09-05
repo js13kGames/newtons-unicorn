@@ -48,11 +48,14 @@ export function loadLevel(i: number) {
 }
 
 export function goto(scr: number) {
+  if (scr === TITLE) {
+    if (G._scr === ENDING) G._tot = 0;  // a replay after the ending starts its clock afresh
+    G._els = mkEls(DEMO);               // title/intro backdrop: the unicorn's beam through a prism
+  }
   G._scr = scr;
   G._since = G._t;
   G._sel = undefined;
   G._mode = G._hold = 0;
-  if (scr === TITLE) G._els = mkEls(DEMO); // title/intro backdrop: the unicorn's beam through a prism
 }
 
 /** Tap / Enter on a non-play screen. `cont` = the title's Continue button was hit. */
@@ -68,6 +71,8 @@ export function checkSolved() {
   if (G._scr === PLAY && !G._mode && isSolved(G._els)) {
     G._tot += G._t - G._start;
     goto(SOLVED);
+    const n = G._li + 1; // progress counts the level as reached once the previous one is solved (Esc / close on the banner is safe)
+    if (n < LEVELS.length && n > G._best) { G._best = n; save(); }
     return true;
   }
   return false;

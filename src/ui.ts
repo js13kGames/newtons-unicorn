@@ -1,5 +1,5 @@
 // HUD, screens (title / intro / solved / ending), particles, sky rainbow, text helper.
-import { G, TITLE, INTRO, SOLVED, ENDING } from './state.ts';
+import { G, TITLE, INTRO, PLAY, SOLVED, ENDING } from './state.ts';
 import { HUD, MB, MB_R } from './input.ts';
 import { W, H, RGB, rgba, circle, type Ctx } from './render.ts';
 import { ROT } from './elements.ts';
@@ -23,9 +23,11 @@ function button(ctx: Ctx, p: number[], r: number, glyph: string, size: number) {
 export function drawHud(ctx: Ctx) {
   const lv = LEVELS[G._li];
   txt(ctx, (G._li + 1) + ' / ' + LEVELS.length + ' · ' + lv[0], 16, 28, 17, white(0.8), true, 'left');
-  const g = ['≡', '♪', '⟲'];
-  for (let i = 0; i < 3; i++) button(ctx, HUD[i], 17, g[i], 20);
-  if (G._mute) { ctx.strokeStyle = '#f66'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(HUD[1][0] - 9, HUD[1][1] + 9); ctx.lineTo(HUD[1][0] + 9, HUD[1][1] - 9); ctx.stroke(); }
+  if (G._scr === PLAY) { // buttons are not tappable on the solved banner (a tap there advances), so do not draw them
+    const g = ['≡', '♪', '⟲'];
+    for (let i = 0; i < 3; i++) button(ctx, HUD[i], 17, g[i], 20);
+    if (G._mute) { ctx.strokeStyle = '#f66'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(HUD[1][0] - 9, HUD[1][1] + 9); ctx.lineTo(HUD[1][0] + 9, HUD[1][1] - 9); ctx.stroke(); }
+  }
   txt(ctx, lv[1], W / 2, H - 38, 16, white(0.75));
   if (G._touch && G._sel && G._sel._f & ROT) { button(ctx, MB[0], MB_R, '⟲', 40); button(ctx, MB[1], MB_R, '⟳', 40); }
 }

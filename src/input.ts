@@ -1,6 +1,6 @@
 // Pointer Events (mouse + touch share one vocabulary), keyboard, HUD buttons, mobile rotate buttons, soft snap.
-import { G, PLAY, TITLE, SOLVED, loadLevel, goto, advance, save } from './state.ts';
-import { pick, handlePos, MOVE, ROT, PRISM, MIRROR, WALL, W, H, DEG, type El } from './elements.ts';
+import { G, PLAY, TITLE, INTRO, SOLVED, loadLevel, goto, advance, save } from './state.ts';
+import { pick, handlePos, MOVE, ROT, EMITTER, PRISM, MIRROR, WALL, W, H, DEG, type El } from './elements.ts';
 import { LEVELS } from './levels.ts';
 import { unlock, sfx, setMute, SFX_PICK, SFX_DROP, SFX_TICK, SFX_CLICK, SFX_WHOOSH } from './audio.ts';
 
@@ -15,21 +15,25 @@ const near = (x: number, y: number, p: number[], r: number) => Math.hypot(x - p[
 export function toggleMute() { G._mute = !G._mute; setMute(G._mute); save(); }
 export function resetLevel() { const s = G._start; loadLevel(G._li); G._start = s; sfx(SFX_WHOOSH); }
 
-let lastTick = 0;
+let lastTick = 0, holdT = 0;
 /** Rotate by degrees with a rate-limited tick sound. */
 export function rotate(e: El, deg: number) {
   e._a += deg * DEG;
   if (G._t - lastTick > 0.08) { lastTick = G._t; sfx(SFX_TICK); }
 }
+/** Per-frame: a held mobile rotate button turns continuously after a short delay (a tap gave one 1-degree step). */
+export function tick(dt: number) {
+  if (G._hold && G._sel && G._t - holdT > 0.3) rotate(G._sel, G._hold * dt * 60);
+}
 
-/** Keep elements on the canvas and out of the unicorn. */
+/** Keep elements out of the unicorn, then on the canvas. */
 function clamp(e: El) {
-  e._x = Math.max(24, Math.min(W - 24, e._x));
-  e._y = Math.max(24, Math.min(H - 34, e._y));
   for (const em of G._els) if (!em._t) {
     const dx = e._x - em._x, dy = e._y - em._y, d = Math.hypot(dx, dy) || 1, min = 70 + (e._t === PRISM ? e._s : 0);
     if (d < min) { e._x = em._x + dx / d * min; e._y = em._y + dy / d * min; }
   }
+  e._x = Math.max(24, Math.min(W - 24, e._x));
+  e._y = Math.max(24, Math.min(H - 34, e._y));
 }
 
 /** Soft snap: within 8 px / 2 deg (modulo the element's symmetry) of the authored solution -> snap exactly. */
@@ -46,16 +50,15 @@ function snap(e: El) {
 
 export function initInput(cv: HTMLCanvasElement) {
   const pos = (e: PointerEvent | WheelEvent): [number, number] => [(e.clientX - G._view[1]) / G._view[0], (e.clientY - G._view[2]) / G._view[0]];
-  let offx = 0, offy = 0;
+  let offx = 0, offy = 0, offa = 0, acc = 0, dragId = -1;
 
   cv.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    cv.setPointerCapture(e.pointerId);
     G._touch = e.pointerType === 'touch';
-    unlock();
+    if (e.pointerType === 'mouse') unlock(); // touch / pen only gain user activation at pointerup (see up())
+    if (G._mode || G._hold) return;          // a second finger must not hijack the gesture
     const [x, y] = pos(e);
     if (G._scr !== PLAY) {
-      if (G._scr === SOLVED && G._t - G._since < 0.6) return; // let the bloom land before a stray tap skips it
+      if ((G._scr === SOLVED || G._scr === INTRO) && G._t - G._since < 0.6) return; // let the screen land before a stray tap skips it
       // title: a Continue button sits under the tagline when progress exists
       advance(G._scr === TITLE && Math.abs(x - W / 2) < 80 && Math.abs(y - 400) < 22);
       sfx(SFX_CLICK);
@@ -66,35 +69,44 @@ export function initInput(cv: HTMLCanvasElement) {
       if (i === 0) goto(TITLE); else if (i === 1) toggleMute(); else resetLevel();
       return;
     }
-    const sel = G._sel, pad = G._touch ? 12 : 0;
-    if (sel && sel._f & ROT) {
-      if (G._touch) for (let i = 0; i < 2; i++) if (near(x, y, MB[i], MB_R + 10)) { G._hold = i ? 1 : -1; return; }
-      const [hx, hy] = handlePos(sel);
-      if (near(x, y, [hx, hy], 14 + pad)) { G._mode = 2; sfx(SFX_PICK); return; }
-    }
+    cv.setPointerCapture(e.pointerId);
+    dragId = e.pointerId;
+    const sel = G._sel, pad = G._touch ? 12 / Math.min(1, G._view[0]) : 0; // ~12 physical px on any screen
     const p = pick(G._els, x, y, pad);
+    if (sel && sel._f & ROT) {
+      if (G._touch && !p) for (let i = 0; i < 2; i++) if (near(x, y, MB[i], MB_R + 10)) {
+        G._hold = i ? 1 : -1; holdT = G._t; rotate(sel, G._hold);
+        return;
+      }
+      const h = handlePos(sel);
+      if (near(x, y, h, 14 + pad)) { G._mode = 2; offa = sel._a - Math.atan2(y - sel._y, x - sel._x); sfx(SFX_PICK); return; }
+    }
     G._sel = p;
     if (p) {
       sfx(SFX_PICK);
       if (p._f & MOVE) { G._mode = 1; offx = p._x - x; offy = p._y - y; }
-      else G._mode = 2;
+      else { G._mode = 2; offa = p._t === EMITTER ? 0 : p._a - Math.atan2(y - p._y, x - p._x); } // body drag rotates relative; the horn aims absolutely
     }
   });
 
   cv.addEventListener('pointermove', e => {
-    const [x, y] = pos(e);
-    const s = G._sel;
+    if (G._mode && e.pointerId !== dragId) return;
+    const [x, y] = pos(e), s = G._sel;
     if (G._mode === 1 && s) { s._x = x + offx; s._y = y + offy; clamp(s); }
-    else if (G._mode === 2 && s) s._a = Math.atan2(y - s._y, x - s._x);
-    else if (G._scr === PLAY && e.pointerType === 'mouse') {
+    else if (G._mode === 2 && s) {
+      const dx = x - s._x, dy = y - s._y;
+      if (s._t !== EMITTER || dx * dx + dy * dy > 900) s._a = Math.atan2(dy, dx) + offa; // dead zone: the horn tip is the rotation center
+    } else if (G._scr === PLAY && e.pointerType === 'mouse') {
       const h = s && s._f & ROT && near(x, y, handlePos(s), 14);
       cv.style.cursor = h || pick(G._els, x, y, 0) ? 'grab' : 'default';
     }
     if (G._mode) cv.style.cursor = 'grabbing';
   });
 
-  const up = () => {
-    if (G._mode && G._sel) { snap(G._sel); sfx(SFX_DROP); }
+  const up = (e: PointerEvent) => {
+    if ((G._mode || G._hold) && e.pointerId !== dragId) return;
+    if (e.type === 'pointerup') { unlock(); focus(); } // activation exists here for every pointer type; focus() keeps keys alive in iframes
+    if ((G._mode || G._hold) && G._sel) { snap(G._sel); sfx(SFX_DROP); }
     G._mode = G._hold = 0;
     cv.style.cursor = 'default';
   };
@@ -103,12 +115,17 @@ export function initInput(cv: HTMLCanvasElement) {
 
   cv.addEventListener('wheel', e => {
     e.preventDefault();
+    if (G._scr !== PLAY) return;
     const [x, y] = pos(e);
-    const p = pick(G._els, x, y, 0) || G._sel;
-    if (p && p._f & ROT && G._scr === PLAY) { G._sel = p; rotate(p, Math.sign(e.deltaY) * (e.shiftKey ? 0.2 : 1)); }
+    const p = G._mode ? G._sel : pick(G._els, x, y, 0) || G._sel; // never re-target during a drag
+    if (!p || !(p._f & ROT)) return;
+    acc += e.deltaMode ? e.deltaY * 33 : e.deltaY;             // Firefox line mode: 3 lines per notch
+    const n = Math.trunc(acc / 90);                            // one notch (~100 px) = 1 degree; trackpads accumulate
+    if (n) { acc -= n * 90; G._sel = p; rotate(p, n * (e.shiftKey ? 0.2 : 1)); }
   }, { passive: false });
 
   addEventListener('keydown', e => {
+    unlock();
     const k = e.key.toLowerCase(), s = G._sel;
     if (k === 'r') { if (G._scr === PLAY) resetLevel(); }
     else if (k === 'm') toggleMute();
