@@ -73,6 +73,8 @@ function frame(ms: number) {
     const segs = G._rays.reduce((a, r) => a + r._p.length / 2 - 1, 0);
     const masks = G._els.filter(e => e._t === TARGET).map(e => e._h + (e._ok ? '✓' : '')).join(' ');
     txt(ctx, `${fps | 0} fps · ${G._rays.length} rays · ${segs} segs · solved ${G._els.every(e => e._t !== TARGET || e._ok)} · masks ${masks}`, 8, H - 8, 11, '#8f8', false, 'left');
+    const ed = (globalThis as any).NU_ED; // editor overlay hook (set by dev/editor.ts)
+    if (ed) ed(ctx, dt);
   }
   requestAnimationFrame(frame);
 }

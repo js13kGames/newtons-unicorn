@@ -12,6 +12,7 @@ export const rgba = (c: number[], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${
 
 /** Additive mix of the bands in a mask (0 -> grey). */
 export function mixColor(mask: number): number[] {
+  if (mask === 127) return [255, 255, 255];
   let r = 0, g = 0, b = 0, n = 0;
   for (let i = 0; i < 7; i++) if (mask >> i & 1) { r += RGB[i][0]; g += RGB[i][1]; b += RGB[i][2]; n++; }
   if (!n) return [120, 120, 130];
