@@ -20,7 +20,7 @@ const LEGEND = [
 ];
 
 const mk = (t: number, x: number, y: number, s: number, f: number, m: number[]): El =>
-  ({ _t: t, _x: x, _y: y, _a: 0, _s: s, _f: f, _m: m, _h: 0, _ok: false, _w: false });
+  ({ _t: t, _x: x, _y: y, _a: 0, _s: s, _f: f, _m: m, _h: 0, _ok: false, _w: 0 });
 /** Angle as integer degrees normalized to (-180, 180]. */
 const deg = (a: number) => { const d = Math.round(a / DEG) % 360; return d > 180 ? d - 360 : d <= -180 ? d + 360 : d; };
 /** Compact element literal, exactly as in levels.ts. */

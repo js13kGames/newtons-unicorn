@@ -1,12 +1,13 @@
 // Boot, resize/letterbox, frame loop, screen flow. Heavy work (tracing, audio) only happens after the first frame / gesture.
-import { W, H, drawBg, drawBeams, drawElements, drawTargets, mixColor, circle } from './render.ts';
+import { W, H, drawBg, drawBeams, drawElements, drawTargets, mixColor } from './render.ts';
 import { drawHud, drawScreens, drawParticles, spawnBurst, drawSkyRainbow, txt } from './ui.ts';
-import { G, PLAY, SOLVED, ENDING, load, loadLevel, checkSolved, advance } from './state.ts';
+import { G, TITLE, PLAY, SOLVED, load, loadLevel, goto, checkSolved, advance } from './state.ts';
 import { initInput, rotate } from './input.ts';
 import { trace } from './trace.ts';
 import { applySolution, TARGET, EMITTER } from './elements.ts';
 import { LEVELS } from './levels.ts';
-import { setTones, fanfare } from './audio.ts';
+import { setTones, fanfare, sfx, SFX_WRONG, SFX_WHOOSH } from './audio.ts';
+import { drawUnicorn } from './unicorn.ts';
 
 const cv = document.getElementById('c') as HTMLCanvasElement;
 const ctx = cv.getContext('2d')!;
@@ -22,30 +23,25 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 load();
+goto(TITLE);
 initInput(cv);
 
-/** Placeholder unicorn (replaced by the procedural one at milestone 7): a body blob + horn from the emitter tip. */
-function drawUnicorn(c: CanvasRenderingContext2D) {
-  for (const e of G._els) if (e._t === EMITTER) {
-    circle(c, e._x - Math.cos(e._a) * 40, e._y - Math.sin(e._a) * 40, 26);
-    c.fillStyle = '#e8e4ff'; c.fill();
-    c.strokeStyle = '#ffd27a'; c.lineWidth = 4; c.lineCap = 'round';
-    c.beginPath(); c.moveTo(e._x - Math.cos(e._a) * 30, e._y - Math.sin(e._a) * 30); c.lineTo(e._x, e._y); c.stroke();
-  }
-}
-
-let fps = 60;
+let fps = 60, prevStart = -1, lastWrong = 0;
 function frame(ms: number) {
   const t = ms / 1000, dt = Math.min(0.05, t - G._t);
   G._t = t;
-  const s = G._scr, inWorld = s === PLAY || s === SOLVED || s === ENDING;
+  const s = G._scr, inWorld = s >= PLAY, last = G._li === LEVELS.length - 1;
+  if (G._start !== prevStart) { prevStart = G._start; if (inWorld) sfx(SFX_WHOOSH); }
   if (G._hold && G._sel) rotate(G._sel, G._hold * dt * 75);
+  G._rays = trace(G._els, last ? 24 : 16);
   let mask = 0;
-  if (inWorld) {
-    G._rays = trace(G._els, G._li === LEVELS.length - 1 ? 24 : 16);
-    for (const e of G._els) if (e._t === TARGET) {
-      if (e._ok) { mask |= e._h; if (!e._w) spawnBurst(e._x, e._y, mixColor(e._h)); }
-      e._w = e._ok;
+  if (inWorld) for (const e of G._els) if (e._t === TARGET) {
+    const st = e._h | (e._ok ? 128 : 0);
+    if (e._ok) mask |= e._h;
+    if (st !== e._w) {
+      if (e._ok) spawnBurst(e._x, e._y, mixColor(e._h));
+      else if (e._h && s === PLAY && t - lastWrong > 0.3) { lastWrong = t; sfx(SFX_WRONG); }
+      e._w = st;
     }
   }
   setTones(s === PLAY || s === SOLVED ? mask : 0);
@@ -57,15 +53,13 @@ function frame(ms: number) {
   const v = G._view;
   ctx.setTransform(dpr * v[0], 0, 0, dpr * v[0], v[1] * dpr, v[2] * dpr);
   drawBg(ctx);
-  if (inWorld) {
-    if (G._li === LEVELS.length - 1 && s !== PLAY) drawSkyRainbow(ctx, Math.min(1, (t - G._since) / 2 + (s === ENDING ? 1 : 0)));
-    drawBeams(ctx, G._rays, t);
-    drawElements(ctx, G._els, G._sel, t);
-    drawTargets(ctx, G._els, t);
-  }
-  drawUnicorn(ctx);
+  if (last && s > PLAY) drawSkyRainbow(ctx, Math.min(1, (t - G._since) / 2 + (s > SOLVED ? 1 : 0)));
+  drawBeams(ctx, G._rays, t);
+  drawElements(ctx, G._els, inWorld ? G._sel : undefined, t);
+  if (inWorld) drawTargets(ctx, G._els, t);
+  for (const e of G._els) if (e._t === EMITTER) drawUnicorn(ctx, e, t, s > PLAY ? Math.min(1, (t - G._since) * 2) : 0);
   drawParticles(ctx, dt);
-  if (inWorld && s !== ENDING) drawHud(ctx);
+  if (s === PLAY || s === SOLVED) drawHud(ctx);
   drawScreens(ctx);
 
   if (DEV) {

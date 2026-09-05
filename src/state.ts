@@ -1,6 +1,6 @@
 // Shared mutable game state + level/screen transitions. Imported by main, input, render, audio.
 import { mkEls, isSolved, type El } from './elements.ts';
-import { LEVELS } from './levels.ts';
+import { LEVELS, DEMO } from './levels.ts';
 import type { Ray } from './trace.ts';
 
 /** Screens. */
@@ -52,6 +52,7 @@ export function goto(scr: number) {
   G._since = G._t;
   G._sel = undefined;
   G._mode = G._hold = 0;
+  if (scr === TITLE) G._els = mkEls(DEMO); // title/intro backdrop: the unicorn's beam through a prism
 }
 
 /** Tap / Enter on a non-play screen. `cont` = the title's Continue button was hit. */

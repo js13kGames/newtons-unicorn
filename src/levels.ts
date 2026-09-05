@@ -7,6 +7,9 @@ import type { Level } from "./elements.ts";
 
 export const R = 1, O = 2, Y = 4, G = 8, B = 16, I = 32, V = 64, WHITE = 127;
 
+/** Title / intro backdrop: the unicorn's beam fanning through a prism (no targets). */
+export const DEMO: Level = ['', '', [[0, 140, 430, -30, 0, 0], [1, 330, 320, 10, 60, 0]], []];
+
 export const LEVELS: Level[] = [
   ["First Light", "Drag the horn to aim.",
     [[0, 120, 400, -30, 0, 2],
