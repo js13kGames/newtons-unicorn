@@ -15,13 +15,14 @@ export interface El {
   _m: number[];    // filter: [mask]; target: accept masks (negative = "contains"); emitter: [rayCount]
   _h: number;      // runtime: incident band mask (targets)
   _ok: boolean;    // runtime: satisfied (targets)
+  _w: boolean;     // runtime: was satisfied last frame (bloom burst trigger)
 }
 
 /** Compact level: [name, hint, elements, solution]. Element: [type, x, y, angleDeg, size, flags, ...extra]. Solution: [index, x, y, angleDeg, ...]. */
 export type Level = [string, string, number[][], number[]];
 
 export const mkEls = (lv: Level): El[] =>
-  lv[2].map(d => ({ _t: d[0], _x: d[1], _y: d[2], _a: d[3] * DEG, _s: d[4], _f: d[5], _m: d.slice(6), _h: 0, _ok: false }));
+  lv[2].map(d => ({ _t: d[0], _x: d[1], _y: d[2], _a: d[3] * DEG, _s: d[4], _f: d[5], _m: d.slice(6), _h: 0, _ok: false, _w: false }));
 
 export function applySolution(els: El[], sol: number[]) {
   for (let i = 0; i < sol.length; i += 4) {
