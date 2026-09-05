@@ -1,0 +1,25 @@
+{
+  "name": "newtons-unicorn",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Newton's Unicorn - an optics puzzle for js13kGames 2026 (Unicorns and Rainbows)",
+  "scripts": {
+    "dev": "vite",
+    "build": "node build.mjs",
+    "build:fast": "node build.mjs --fast",
+    "test": "node --test test/trace.test.ts test/levels.test.ts",
+    "typecheck": "tsc --noEmit",
+    "headless": "node test/headless.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "archiver": "^8.0.0",
+    "ect-bin": "^1.4.1",
+    "esbuild": "^0.28.2",
+    "roadroller": "^2.1.0",
+    "terser": "^5.51.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  }
+}
