@@ -1,13 +1,13 @@
 // Pointer Events (mouse + touch share one vocabulary), keyboard, HUD buttons, mobile rotate buttons, soft snap.
-import { G, PLAY, TITLE, loadLevel, goto, advance, save } from './state.ts';
+import { G, PLAY, TITLE, SOLVED, loadLevel, goto, advance, save } from './state.ts';
 import { pick, handlePos, MOVE, ROT, PRISM, MIRROR, WALL, W, H, DEG, type El } from './elements.ts';
 import { LEVELS } from './levels.ts';
 import { unlock, sfx, setMute, SFX_PICK, SFX_DROP, SFX_TICK, SFX_CLICK, SFX_WHOOSH } from './audio.ts';
 
 /** HUD buttons (top-right): 0 title, 1 mute, 2 reset. */
 export const HUD: number[][] = [[W - 30, 28], [W - 76, 28], [W - 122, 28]];
-/** Mobile rotate buttons (lower corners): 0 counter-clockwise, 1 clockwise. */
-export const MB: number[][] = [[64, H - 64], [W - 64, H - 64]];
+/** Mobile rotate buttons (lower corners, the left one clear of the unicorn): 0 counter-clockwise, 1 clockwise. */
+export const MB: number[][] = [[150, H - 64], [W - 64, H - 64]];
 export const MB_R = 38;
 
 const near = (x: number, y: number, p: number[], r: number) => Math.hypot(x - p[0], y - p[1]) < r;
@@ -55,6 +55,7 @@ export function initInput(cv: HTMLCanvasElement) {
     unlock();
     const [x, y] = pos(e);
     if (G._scr !== PLAY) {
+      if (G._scr === SOLVED && G._t - G._since < 0.6) return; // let the bloom land before a stray tap skips it
       // title: a Continue button sits under the tagline when progress exists
       advance(G._scr === TITLE && Math.abs(x - W / 2) < 80 && Math.abs(y - 400) < 22);
       sfx(SFX_CLICK);

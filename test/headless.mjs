@@ -57,6 +57,27 @@ await open(`${base}/index.html`, 1500, 'screenshots/play.png', async page => {
   await page.mouse.move(150, 380); await page.mouse.down(); await page.mouse.move(400, 200, { steps: 10 }); await page.mouse.up();
   await page.keyboard.press('e'); await page.keyboard.press('r'); await page.keyboard.press('m');
 });
+// 1c. touch + phone viewports: tap through to level 3 (rotate-only prism), tap the prism -> mobile rotate buttons must show
+for (const [w, h, name] of [[800, 360, 'phone-landscape'], [360, 800, 'phone-portrait']]) {
+  const ctxm = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+  const page = await ctxm.newPage();
+  const errs = [];
+  page.on('console', m => { if (m.type() === 'error') errs.push('console.error: ' + m.text()); });
+  page.on('pageerror', e => errs.push('pageerror: ' + e.message));
+  await page.goto(`${base}/dev/index.html?level=3`);
+  await page.waitForTimeout(300);
+  // logical (235,305) -> client coords through the letterbox transform
+  const pt = await page.evaluate(() => { const v = NU._view; return [235 * v[0] + v[1], 305 * v[0] + v[2]]; });
+  await page.touchscreen.tap(pt[0], pt[1]);
+  await page.waitForTimeout(300);
+  const st = await page.evaluate(() => ({ touch: NU._touch, sel: !!NU._sel, scr: NU._scr }));
+  await page.screenshot({ path: `screenshots/${name}.png` });
+  const ok = errs.length === 0 && st.touch && st.sel;
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  touch ${name}  -> screenshots/${name}.png  [touch=${st.touch} selected=${st.sel}]`);
+  for (const e of errs) console.log('      ' + e);
+  await ctxm.close();
+}
 // 2. DEV bundle: every level solved via URL
 const { LEVELS } = await import('../src/levels.ts');
 for (let n = 1; n <= LEVELS.length; n++) {

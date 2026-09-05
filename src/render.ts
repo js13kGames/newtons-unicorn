@@ -61,17 +61,25 @@ export function drawBg(ctx: Ctx) {
 export function drawBeams(ctx: Ctx, rays: Ray[], t: number) {
   ctx.globalCompositeOperation = 'lighter';
   ctx.lineCap = ctx.lineJoin = 'round';
-  const passes = [[10, 0.06], [4, 0.25], [1.5, 0.9]];
+  // sun mode (many parallel rays): dimmer per ray and no wide glow pass, or the bundle washes out to white
+  const sun = rays.length > 7, k = sun ? 0.35 : 1;
+  const passes = sun ? [[3, 0.25], [1, 0.9]] : [[10, 0.06], [4, 0.25], [1.5, 0.9]];
   for (const [w, a] of passes) {
     ctx.lineWidth = w;
     for (const r of rays) {
       const p = r._p;
-      ctx.strokeStyle = rgba(RGB[r._b], a * (0.9 + 0.1 * Math.sin(t * 6 + r._b)));
+      ctx.strokeStyle = rgba(RGB[r._b], a * k * (0.9 + 0.1 * Math.sin(t * 6 + r._b)));
       ctx.beginPath();
       ctx.moveTo(p[0], p[1]);
       for (let i = 2; i < p.length; i += 2) ctx.lineTo(p[i], p[i + 1]);
       ctx.stroke();
     }
+  }
+  // Fresnel ghosts: the faint partial reflection where a beam enters glass / water (decoration only)
+  ctx.lineWidth = 1;
+  for (const r of rays) for (let i = 0; i < r._g.length; i += 4) {
+    ctx.strokeStyle = rgba(RGB[r._b], 0.1);
+    ctx.beginPath(); ctx.moveTo(r._g[i], r._g[i + 1]); ctx.lineTo(r._g[i + 2], r._g[i + 3]); ctx.stroke();
   }
   ctx.globalCompositeOperation = 'source-over';
 }

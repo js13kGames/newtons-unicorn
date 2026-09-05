@@ -12,8 +12,13 @@ export const WATER = [1.3, 0.03];
 export const EPS = 1e-3;
 export const MAX_BOUNCES = 16;
 
-/** Traced polyline for one band of one primary ray. `_k`: event codes (1 refract, 2 reflect, 3 TIR, 4 filter pass). */
-export interface Ray { _b: number; _p: number[]; _k: number[] }
+/** Traced polyline for one band of one primary ray. `_k`: event codes (1 refract, 2 reflect, 3 TIR, 4 filter pass).
+ *  `_g`: decorative Fresnel "ghost" segments [x1,y1,x2,y2,...] (the partial reflection where the ray enters glass/water). */
+export interface Ray { _b: number; _p: number[]; _k: number[]; _g: number[] }
+
+/** Distance along (dx,dy) from (ox,oy) to the canvas edge. */
+const toEdge = (ox: number, oy: number, dx: number, dy: number) =>
+  Math.min(dx > 0 ? (W - ox) / dx : dx < 0 ? -ox / dx : Infinity, dy > 0 ? (H - oy) / dy : dy < 0 ? -oy / dy : Infinity);
 
 export function refIndex(mat: number[], band: number) {
   const l = LAMBDA[band] / 1e3;
@@ -55,11 +60,11 @@ export function hitSeg(ox: number, oy: number, dx: number, dy: number, s: number
   return t > EPS && u >= 0 && u <= 1 ? t : Infinity;
 }
 
-function castRay(els: El[], segs: number[][][], ox: number, oy: number, dx: number, dy: number, b: number, maxB: number): Ray {
-  const pts = [ox, oy], ev: number[] = [], bit = 1 << b;
+function castRay(els: El[], segs: number[][][], ox: number, oy: number, dx: number, dy: number, b: number, maxB: number, ghosts: boolean): Ray {
+  const pts = [ox, oy], ev: number[] = [], gh: number[] = [], bit = 1 << b;
   let k = 0; // inner-surface hit counter (drop rule)
   for (let n = 0; n < maxB; n++) {
-    let bt = Math.min(dx > 0 ? (W - ox) / dx : dx < 0 ? -ox / dx : Infinity, dy > 0 ? (H - oy) / dy : dy < 0 ? -oy / dy : Infinity);
+    let bt = toEdge(ox, oy, dx, dy);
     let be: El | undefined, nx = 0, ny = 0;
     for (let i = 0; i < els.length; i++) {
       const e = els[i];
@@ -90,7 +95,10 @@ function castRay(els: El[], segs: number[][][], ox: number, oy: number, dx: numb
       if (out) { nx = -nx; ny = -ny; }
       const ri = refIndex(t === DROP ? WATER : GLASS, b);
       let c = 1;
-      if (!out) { k = 0; [dx, dy, c] = refract(dx, dy, nx, ny, 1 / ri); }
+      if (!out) {
+        if (ghosts) { const [gx, gy] = reflect(dx, dy, nx, ny), gt = toEdge(hx, hy, gx, gy); gh.push(hx, hy, hx + gx * gt, hy + gy * gt); }
+        k = 0; [dx, dy, c] = refract(dx, dy, nx, ny, 1 / ri);
+      }
       else if (t === DROP && ++k === 1) { [dx, dy] = reflect(dx, dy, nx, ny); c = 2; }
       else [dx, dy, c] = refract(dx, dy, nx, ny, ri);
       ev.push(c);
@@ -98,7 +106,7 @@ function castRay(els: El[], segs: number[][][], ox: number, oy: number, dx: numb
     if (dx !== dx || dy !== dy) break;
     ox = hx + dx * EPS; oy = hy + dy * EPS;
   }
-  return { _b: b, _p: pts, _k: ev };
+  return { _b: b, _p: pts, _k: ev, _g: gh };
 }
 
 /** Trace every emitter, every band. Sets `_h`/`_ok` on targets; returns the polylines. */
@@ -110,7 +118,7 @@ export function trace(els: El[], maxB = MAX_BOUNCES): Ray[] {
     const cnt = em._m[0] || 1, ca = Math.cos(em._a), sa = Math.sin(em._a);
     for (let i = 0; i < cnt; i++) {
       const off = cnt > 1 ? (i / (cnt - 1) - 0.5) * em._s : 0;
-      for (let b = 0; b < BANDS; b++) rays.push(castRay(els, segs, em._x - sa * off, em._y + ca * off, ca, sa, b, maxB));
+      for (let b = 0; b < BANDS; b++) rays.push(castRay(els, segs, em._x - sa * off, em._y + ca * off, ca, sa, b, maxB, cnt === 1));
     }
   }
   for (const e of els) if (e._t === TARGET) e._ok = e._m.some(m => m < 0 ? (e._h & -m) === -m : e._h === m);
