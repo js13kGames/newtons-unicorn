@@ -14,6 +14,7 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^26.4.1",
     "archiver": "^8.0.0",
     "ect-bin": "^1.4.1",
     "esbuild": "^0.28.2",
