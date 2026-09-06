@@ -13,23 +13,40 @@ export function txt(ctx: Ctx, s: string, x: number, y: number, size: number, col
 }
 const white = (a: number) => `rgba(255,255,255,${a})`;
 
-function button(ctx: Ctx, p: number[], r: number, glyph: string, size: number) {
+/** Icons as paths (no font dependency): 0 menu bars, 1 note, 2 rotate arrow (dir +1 clockwise / -1 counter-clockwise), 3 check mark. Uses the current strokeStyle/fillStyle. */
+export function icon(ctx: Ctx, k: number, x: number, y: number, r: number, dir = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(dir, 1);
+  ctx.lineWidth = r * 0.16; ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.beginPath();
+  if (k === 0) for (let i = -1; i < 2; i++) { ctx.moveTo(-r * 0.45, i * r * 0.35); ctx.lineTo(r * 0.45, i * r * 0.35); }
+  else if (k === 1) { ctx.moveTo(r * 0.12, r * 0.28); ctx.lineTo(r * 0.12, -r * 0.5); ctx.quadraticCurveTo(r * 0.4, -r * 0.45, r * 0.5, -r * 0.12); }
+  else if (k === 2) {
+    const R = r * 0.5, a = -Math.PI / 2 - 0.5, px = R * Math.cos(a), py = R * Math.sin(a), tx = -Math.sin(a), ty = Math.cos(a), h = R * 0.55;
+    ctx.arc(0, 0, R, a + 1, a + 2 * Math.PI); // open ring ending at the arrow tip
+    for (const f of [0.6, -0.6]) { const c = Math.cos(f), s = Math.sin(f); ctx.moveTo(px, py); ctx.lineTo(px - (tx * c - ty * s) * h, py - (tx * s + ty * c) * h); }
+  } else { ctx.moveTo(-r * 0.5, 0); ctx.lineTo(-r * 0.15, r * 0.35); ctx.lineTo(r * 0.55, -r * 0.4); }
+  ctx.stroke();
+  if (k === 1) { ctx.beginPath(); ctx.ellipse(-r * 0.08, r * 0.3, r * 0.22, r * 0.15, -0.5, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
+
+function button(ctx: Ctx, p: number[], r: number, k: number, dir = 1) {
   circle(ctx, p[0], p[1], r);
   ctx.fillStyle = white(0.08); ctx.fill();
   ctx.strokeStyle = white(0.35); ctx.lineWidth = 1.5; ctx.stroke();
-  txt(ctx, glyph, p[0], p[1] + 1, size, white(0.9));
+  ctx.strokeStyle = ctx.fillStyle = white(0.9);
+  icon(ctx, k, p[0], p[1], r * 1.1, dir);
 }
 
 export function drawHud(ctx: Ctx) {
   const lv = LEVELS[G._li];
   txt(ctx, (G._li + 1) + ' / ' + LEVELS.length + ' · ' + lv[0], 16, 28, 17, white(0.8), true, 'left');
   if (G._scr === PLAY) { // buttons are not tappable on the solved banner (a tap there advances), so do not draw them
-    const g = ['≡', '♪', '⟲'];
-    for (let i = 0; i < 3; i++) button(ctx, HUD[i], 17, g[i], 20);
+    button(ctx, HUD[0], 17, 0); button(ctx, HUD[1], 17, 1); button(ctx, HUD[2], 17, 2, -1);
     if (G._mute) { ctx.strokeStyle = '#f66'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(HUD[1][0] - 9, HUD[1][1] + 9); ctx.lineTo(HUD[1][0] + 9, HUD[1][1] - 9); ctx.stroke(); }
   }
   txt(ctx, lv[1], W / 2, H - 38, 16, white(0.75));
-  if (G._touch && G._sel && G._sel._f & ROT) { button(ctx, MB[0], MB_R, '⟲', 40); button(ctx, MB[1], MB_R, '⟳', 40); }
+  if (G._touch && G._sel && G._sel._f & ROT) { button(ctx, MB[0], MB_R, 2, -1); button(ctx, MB[1], MB_R, 2); }
 }
 
 /** Finale readout: the measured red caustic angle by the drop; when solved, dotted reversed-axis and caustic rays with an arc. */
@@ -62,6 +79,7 @@ export function drawSkyRainbow(ctx: Ctx, a: number) {
 }
 
 export function spawnBurst(x: number, y: number, c: number[]) {
+  if (G._touch) navigator.vibrate?.(8); // haptic tick on bloom (touch only; no-op where unsupported)
   for (let i = 0; i < 24; i++) {
     const a = Math.random() * 7, v = 40 + Math.random() * 140;
     G._parts.push([x, y, Math.cos(a) * v, Math.sin(a) * v - 40, 0.8 + Math.random() * 0.6, c[0], c[1], c[2]]);
@@ -105,7 +123,8 @@ export function drawScreens(ctx: Ctx) {
   } else if (s === SOLVED) {
     const a = Math.min(1, dt * 3);
     ctx.globalCompositeOperation = 'lighter';
-    txt(ctx, S.SOLVED, W / 2, H / 2 - 30, 110 + 20 * Math.min(1, dt * 2), rgba([120, 255, 160], a * 0.9), true);
+    ctx.strokeStyle = rgba([120, 255, 160], a * 0.9);
+    icon(ctx, 3, W / 2, H / 2 - 30, 100 + 20 * Math.min(1, dt * 2));
     ctx.globalCompositeOperation = 'source-over';
   } else if (s === ENDING) {
     const a = Math.min(1, dt / 1.5);

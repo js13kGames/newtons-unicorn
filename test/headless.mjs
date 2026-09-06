@@ -66,15 +66,18 @@ for (const [w, h, name] of [[800, 360, 'phone-landscape'], [360, 800, 'phone-por
   page.on('pageerror', e => errs.push('pageerror: ' + e.message));
   await page.goto(`${base}/dev/index.html?level=3`);
   await page.waitForTimeout(300);
-  // logical (235,305) -> client coords through the letterbox transform
-  const pt = await page.evaluate(() => { const v = NU._view; return [235 * v[0] + v[1], 305 * v[0] + v[2]]; });
+  // logical (235,305) -> client coords through the letterbox transform (the portrait view is rotated 90 degrees)
+  const pt = await page.evaluate(() => { const v = NU._view; return v[3] ? [v[1] - (305 - 270) * v[0], v[2] + (235 - 480) * v[0]] : [235 * v[0] + v[1], 305 * v[0] + v[2]]; });
   await page.touchscreen.tap(pt[0], pt[1]);
   await page.waitForTimeout(300);
-  const st = await page.evaluate(() => ({ touch: NU._touch, sel: !!NU._sel, scr: NU._scr }));
+  const st = await page.evaluate(() => ({ touch: NU._touch, sel: !!NU._sel, scr: NU._scr, s: NU._view[0], rot: !!NU._view[3] }));
   await page.screenshot({ path: `screenshots/${name}.png` });
-  const ok = errs.length === 0 && st.touch && st.sel;
+  // portrait: the game must be rotated and its drawn width (960 * scale) must span the viewport (height-limited or width-limited)
+  const drawn = 960 * st.s, want = h > w ? Math.min(h, w * 960 / 540) : Math.min(w, h * 960 / 540);
+  const fills = Math.abs(drawn - want) <= 2 && st.rot === h > w;
+  const ok = errs.length === 0 && st.touch && st.sel && fills;
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  touch ${name}  -> screenshots/${name}.png  [touch=${st.touch} selected=${st.sel}]`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  touch ${name}  -> screenshots/${name}.png  [touch=${st.touch} selected=${st.sel} rotated=${st.rot} drawn=${drawn.toFixed(0)}/${want.toFixed(0)}]`);
   for (const e of errs) console.log('      ' + e);
   await ctxm.close();
 }

@@ -11,6 +11,14 @@ export const MB: number[][] = [[150, H - 64], [W - 64, H - 64]];
 export const MB_R = 38;
 
 const near = (x: number, y: number, p: number[], r: number) => Math.hypot(x - p[0], y - p[1]) < r;
+/** Hit radius that is at least 22 CSS px on any screen (buttons are 44 px targets even when the game is scaled down). */
+const hitR = (r: number) => Math.max(r, 22 / G._view[0]);
+
+/** Client -> logical coordinates through the letterbox (G._view = [scale, ox, oy, rotated]); the portrait view is turned 90 degrees. */
+export const toLogical = (cx: number, cy: number): [number, number] => {
+  const v = G._view;
+  return v[3] ? [480 + (cy - v[2]) / v[0], 270 - (cx - v[1]) / v[0]] : [(cx - v[1]) / v[0], (cy - v[2]) / v[0]];
+};
 
 export function toggleMute() { G._mute = !G._mute; setMute(G._mute); save(); }
 export function resetLevel() { const s = G._start; loadLevel(G._li); G._start = s; sfx(SFX_WHOOSH); }
@@ -44,12 +52,13 @@ function snap(e: El) {
     const da = ((e._a / DEG - sol[k + 3]) % per + per * 1.5) % per - per / 2;
     if (Math.abs(e._x - sol[k + 1]) <= 8 && Math.abs(e._y - sol[k + 2]) <= 8 && Math.abs(da) <= 2) {
       e._x = sol[k + 1]; e._y = sol[k + 2]; e._a -= da * DEG;
+      if (G._touch) navigator.vibrate?.(8); // haptic click on snap (touch only; no-op where unsupported)
     }
   }
 }
 
 export function initInput(cv: HTMLCanvasElement) {
-  const pos = (e: PointerEvent | WheelEvent): [number, number] => [(e.clientX - G._view[1]) / G._view[0], (e.clientY - G._view[2]) / G._view[0]];
+  const pos = (e: PointerEvent | WheelEvent) => toLogical(e.clientX, e.clientY);
   let offx = 0, offy = 0, offa = 0, acc = 0, dragId = -1;
 
   cv.addEventListener('pointerdown', e => {
@@ -64,9 +73,11 @@ export function initInput(cv: HTMLCanvasElement) {
       sfx(SFX_CLICK);
       return;
     }
-    for (let i = 0; i < 3; i++) if (near(x, y, HUD[i], 24)) {
+    let bi = -1, bd = hitR(24); // nearest HUD button within the (physical-size) hit radius
+    for (let i = 0; i < 3; i++) { const d = Math.hypot(x - HUD[i][0], y - HUD[i][1]); if (d < bd) { bd = d; bi = i; } }
+    if (bi >= 0) {
       sfx(SFX_CLICK);
-      if (i === 0) goto(TITLE); else if (i === 1) toggleMute(); else resetLevel();
+      if (bi === 0) goto(TITLE); else if (bi === 1) toggleMute(); else resetLevel();
       return;
     }
     cv.setPointerCapture(e.pointerId);
@@ -74,7 +85,7 @@ export function initInput(cv: HTMLCanvasElement) {
     const sel = G._sel, pad = G._touch ? 12 / Math.min(1, G._view[0]) : 0; // ~12 physical px on any screen
     const p = pick(G._els, x, y, pad);
     if (sel && sel._f & ROT) {
-      if (G._touch && !p) for (let i = 0; i < 2; i++) if (near(x, y, MB[i], MB_R + 10)) {
+      if (G._touch && !p) for (let i = 0; i < 2; i++) if (near(x, y, MB[i], hitR(MB_R + 10))) {
         G._hold = i ? 1 : -1; holdT = G._t; rotate(sel, G._hold);
         return;
       }

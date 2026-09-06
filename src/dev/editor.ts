@@ -7,6 +7,7 @@ import { LEVELS } from '../levels.ts';
 import { EMITTER, PRISM, DROP, MIRROR, FILTER, WALL, TARGET, DEG, W, H, elDist, type El, type Level } from '../elements.ts';
 import { RGB, rgba, circle } from '../render.ts';
 import { txt } from '../ui.ts';
+import { toLogical } from '../input.ts';
 
 /** Defaults for new elements: [size, flags, extra masks]. */
 const DEF: Record<number, [number, number, number[]]> = {
@@ -91,8 +92,8 @@ function loadLiteral() {
 export function initEditor(cv: HTMLCanvasElement, _ctx: CanvasRenderingContext2D) {
   let px = W / 2, py = H / 2; // pointer in logical canvas coordinates
   cv.addEventListener('pointermove', e => {
-    px = Math.round((e.clientX - G._view[1]) / G._view[0]);
-    py = Math.round((e.clientY - G._view[2]) / G._view[0]);
+    const p = toLogical(e.clientX, e.clientY);
+    px = Math.round(p[0]); py = Math.round(p[1]);
   });
   /** Nearest element (optionally of type t) under the pointer - unlike `pick` this also finds fixed elements (walls, flowers). */
   const over = (t?: number) =>

@@ -15,8 +15,10 @@ let dpr = 1;
 
 function resize() {
   dpr = Math.min(devicePixelRatio || 1, 2);
-  const w = innerWidth, h = innerHeight, s = Math.min(w / W, h / H);
-  G._view = [s, (w - W * s) / 2, (h - H * s) / 2];
+  const w = innerWidth, h = innerHeight, rot = h > w ? 1 : 0;
+  // portrait: the 960x540 game is drawn turned 90 degrees so it fills the screen once the phone is turned (works with rotation lock)
+  const s = rot ? Math.min(w / H, h / W) : Math.min(w / W, h / H);
+  G._view = rot ? [s, w / 2, h / 2, 1] : [s, (w - W * s) / 2, (h - H * s) / 2, 0];
   cv.width = w * dpr; cv.height = h * dpr;
   cv.style.width = w + 'px'; cv.style.height = h + 'px';
 }
@@ -53,9 +55,11 @@ function frame(ms: number) {
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
-  const v = G._view;
-  ctx.setTransform(dpr * v[0], 0, 0, dpr * v[0], v[1] * dpr, v[2] * dpr);
-  drawBg(ctx, Math.min(3, dpr * v[0]));
+  const v = G._view, k = dpr * v[0];
+  // landscape: scale + letterbox offset; portrait: translate to the center, rotate 90 degrees, scale, translate(-480,-270)
+  if (v[3]) ctx.setTransform(0, k, -k, 0, v[1] * dpr + H / 2 * k, v[2] * dpr - W / 2 * k);
+  else ctx.setTransform(k, 0, 0, k, v[1] * dpr, v[2] * dpr);
+  drawBg(ctx, Math.min(3, k));
   if (last && s > PLAY) drawSkyRainbow(ctx, Math.min(1, (t - G._since) / 2 + (s > SOLVED ? 1 : 0)));
   drawBeams(ctx, G._rays, t);
   drawElements(ctx, G._els, inWorld ? G._sel : undefined, t);

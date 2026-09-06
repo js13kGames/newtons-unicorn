@@ -19,7 +19,7 @@ export const G = {
   _touch: false,                  // last pointer was a touch -> show mobile rotate buttons, inflate hit areas
   _mute: false,
   _best: 0,                       // highest level index reached (persisted)
-  _view: [1, 0, 0],               // canvas transform: scale, offsetX, offsetY (CSS px)
+  _view: [1, 0, 0, 0],            // canvas transform: scale, offsetX, offsetY (CSS px), rotated (1 = portrait view turned 90 degrees)
   _mode: 0,                       // pointer mode: 0 idle, 1 move, 2 rotate/aim
   _hold: 0,                       // mobile rotate button held: -1 / +1
   _parts: [] as number[][],       // particles [x, y, vx, vy, life, r, g, b]

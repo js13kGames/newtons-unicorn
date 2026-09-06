@@ -14,3 +14,4 @@
 | 2026-09-05 23:17 | M8 ship + review fixes (Roadroller -O2) | 50775 | 42511 | 21186 | 10579 | 8233 | 5079 |
 | 2026-09-06 00:37 | I2-A 42deg (tree also holds B/C/E partials) | 56871 | 45881 | 23031 | 11348 | 8803 | 4509 |
 | 2026-09-06 00:40 | I2-B music (tree also holds C/E partials) | 58391 | 48214 | 24420 | 11911 | 9227 | 4085 |
+| 2026-09-06 00:42 | I2-C mobile (tree also holds E partials) | 58826 | 48395 | 24519 | 11975 | 9275 | 4037 |
