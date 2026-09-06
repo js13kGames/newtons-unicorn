@@ -10,7 +10,8 @@
     "build:fast": "node build.mjs --fast",
     "test": "node --test test/trace.test.ts test/levels.test.ts",
     "typecheck": "tsc --noEmit",
-    "headless": "node test/headless.mjs"
+    "headless": "node test/headless.mjs",
+    "gif": "node tools/gif.mjs"
   },
   "license": "MIT",
   "devDependencies": {
@@ -18,7 +19,9 @@
     "archiver": "^8.0.0",
     "ect-bin": "^1.4.1",
     "esbuild": "^0.28.2",
+    "gifenc": "^1.0.3",
     "playwright": "^1.63.0",
+    "pngjs": "^7.0.0",
     "roadroller": "^2.1.0",
     "terser": "^5.51.2",
     "typescript": "^7.0.2",
