@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { refract, reflect, trace, refIndex, GLASS, hitCircle, hitSeg } from '../src/trace.ts';
+import { refract, reflect, trace, refIndex, GLASS, WATER, hitCircle, hitSeg, caustic } from '../src/trace.ts';
 import { mkEls, EMITTER, PRISM, DROP, TARGET, WALL, W, DEG, type Level } from '../src/elements.ts';
 
 const close = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} !~ ${b}`);
@@ -102,6 +102,18 @@ test('sun mode emits count parallel rays across width; rays leaving the canvas e
   assert.equal(ys.size, 24);
   assert.ok(Math.min(...ys) >= 200 && Math.max(...ys) <= 340);
   for (const r of rays) { close(r._p[2], W); close(r._p[3], r._p[1]); }
+});
+
+test('sun-mode caustic: the red rainbow angle for WATER at a centered drop is 42.4 +- 0.3 deg', () => {
+  close(refIndex(WATER, 0), 1.331, 0.001);
+  const lv: Level = ['t', '', [[EMITTER, 60, 300, 0, 150, 0, 48], [DROP, 500, 300, 0, 80, 1]], []];
+  const a = caustic(trace(mkEls(lv), 24), 1, 0, 48);
+  close(a[0], 42.4, 0.3);
+  assert.ok(a[6] > 25.5 && a[6] < 28.5, `violet caustic ${a[6]}`);
+  for (let b = 1; b < 7; b++) assert.ok(a[b] < a[b - 1], 'red outermost, violet innermost');
+  // fewer than half of the bundle in the drop -> no readout
+  const lv2: Level = ['t', '', [[EMITTER, 60, 300, 0, 150, 0, 48], [DROP, 500, 420, 0, 80, 1]], []];
+  assert.equal(caustic(trace(mkEls(lv2), 24), 1, 0, 48)[0], -1);
 });
 
 test('primitive intersections', () => {

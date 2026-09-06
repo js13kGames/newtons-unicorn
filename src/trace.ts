@@ -8,7 +8,8 @@ export const BANDS = 7;
 export const LAMBDA = [700, 620, 580, 530, 470, 440, 400];
 /** Cauchy coefficients [A, B(um^2)] - deliberately exaggerated dispersion for legibility. */
 export const GLASS = [1.45, 0.03];
-export const WATER = [1.3, 0.03];
+/** Water: A chosen so red (700 nm) has the real n = 1.331 and its rainbow angle is the true 42.4 deg; B exaggerates the other bands. */
+export const WATER = [1.27, 0.03];
 export const EPS = 1e-3;
 export const MAX_BOUNCES = 16;
 
@@ -107,6 +108,23 @@ function castRay(els: El[], segs: number[][][], ox: number, oy: number, dx: numb
     ox = hx + dx * EPS; oy = hy + dy * EPS;
   }
   return { _b: b, _p: pts, _k: ev, _g: gh };
+}
+
+/** Sun-mode caustic readout: per band, the largest exit angle (degrees) from the reversed beam axis among rays that
+ *  completed the drop path (enter -> reflect -> exit) - the minimum-deviation / rainbow angle. -1 for a band when
+ *  fewer than half of its `count` rays entered the drop. (ca, sa) is the beam direction. */
+export function caustic(rays: Ray[], ca: number, sa: number, count: number): number[] {
+  const out = Array(BANDS).fill(-1), hits = Array(BANDS).fill(0);
+  for (const r of rays) {
+    const k = r._k, p = r._p, n = p.length;
+    if (k[0] !== 1) continue;
+    hits[r._b]++;
+    if (k.length !== 3 || k[1] !== 2 || k[2] !== 1) continue;
+    const dx = p[n - 2] - p[n - 4], dy = p[n - 1] - p[n - 3];
+    const a = Math.acos(-(dx * ca + dy * sa) / Math.hypot(dx, dy)) * 180 / Math.PI;
+    if (a > out[r._b]) out[r._b] = a;
+  }
+  return out.map((a, b) => hits[b] * 2 >= count ? a : -1);
 }
 
 /** Trace every emitter, every band. Sets `_h`/`_ok` on targets; returns the polylines. */

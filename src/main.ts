@@ -1,10 +1,10 @@
 // Boot, resize/letterbox, frame loop, screen flow. Heavy work (tracing, audio) only happens after the first frame / gesture.
 import { W, H, drawBg, drawBeams, drawElements, drawTargets, mixColor } from './render.ts';
-import { drawHud, drawScreens, drawParticles, spawnBurst, drawSkyRainbow, txt } from './ui.ts';
+import { drawHud, drawScreens, drawParticles, spawnBurst, drawSkyRainbow, drawCaustic, txt } from './ui.ts';
 import { G, TITLE, PLAY, SOLVED, load, loadLevel, goto, checkSolved, advance } from './state.ts';
 import { initInput, tick } from './input.ts';
-import { trace } from './trace.ts';
-import { applySolution, TARGET, EMITTER } from './elements.ts';
+import { trace, caustic } from './trace.ts';
+import { applySolution, TARGET, EMITTER, DROP } from './elements.ts';
 import { LEVELS } from './levels.ts';
 import { setTones, fanfare, sfx, SFX_WRONG, SFX_WHOOSH } from './audio.ts';
 import { drawUnicorn } from './unicorn.ts';
@@ -26,14 +26,16 @@ load();
 goto(TITLE);
 initInput(cv);
 
-let fps = 60, prevStart = -1, lastWrong = 0;
+let fps = 60, prevStart = -1, lastWrong = 0, cau: number[] = [];
 function frame(ms: number) {
   const t = ms / 1000, dt = Math.min(0.05, t - G._t);
   G._t = t;
   const s = G._scr, inWorld = s >= PLAY, last = G._li === LEVELS.length - 1;
   if (G._start !== prevStart) { prevStart = G._start; if (inWorld) sfx(SFX_WHOOSH); }
   tick(dt);
+  const em = G._els[0], sun = em && em._m[0] > 1; // sun-mode emitter (finale) -> live caustic readout
   G._rays = trace(G._els, last ? 24 : 16);
+  if (sun) cau = caustic(G._rays, Math.cos(em._a), Math.sin(em._a), em._m[0]);
   let mask = 0;
   if (inWorld) for (const e of G._els) if (e._t === TARGET) {
     const st = e._h | (e._ok ? 128 : 0);
@@ -56,7 +58,11 @@ function frame(ms: number) {
   if (last && s > PLAY) drawSkyRainbow(ctx, Math.min(1, (t - G._since) / 2 + (s > SOLVED ? 1 : 0)));
   drawBeams(ctx, G._rays, t);
   drawElements(ctx, G._els, inWorld ? G._sel : undefined, t);
-  if (inWorld) drawTargets(ctx, G._els, t);
+  if (inWorld) {
+    drawTargets(ctx, G._els, t);
+    const d = sun && G._els.find(e => e._t === DROP);
+    if (d) drawCaustic(ctx, d, cau, Math.cos(em._a), Math.sin(em._a), s > PLAY);
+  }
   for (const e of G._els) if (e._t === EMITTER) drawUnicorn(ctx, e, t, s > PLAY ? Math.min(1, (t - G._since) * 2) : 0);
   drawParticles(ctx, dt);
   if (s === PLAY || s === SOLVED) drawHud(ctx);

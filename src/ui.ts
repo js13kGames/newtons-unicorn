@@ -2,7 +2,7 @@
 import { G, TITLE, INTRO, PLAY, SOLVED, ENDING } from './state.ts';
 import { HUD, MB, MB_R } from './input.ts';
 import { W, H, RGB, rgba, circle, type Ctx } from './render.ts';
-import { ROT } from './elements.ts';
+import { ROT, DEG, type El } from './elements.ts';
 import { LEVELS } from './levels.ts';
 import * as S from './strings.ts';
 
@@ -30,6 +30,24 @@ export function drawHud(ctx: Ctx) {
   }
   txt(ctx, lv[1], W / 2, H - 38, 16, white(0.75));
   if (G._touch && G._sel && G._sel._f & ROT) { button(ctx, MB[0], MB_R, '⟲', 40); button(ctx, MB[1], MB_R, '⟳', 40); }
+}
+
+/** Finale readout: the measured red caustic angle by the drop; when solved, dotted reversed-axis and caustic rays with an arc. */
+export function drawCaustic(ctx: Ctx, d: El, ang: number[], ca: number, sa: number, solved: boolean) {
+  const a = ang[0];
+  if (a < 0) return;
+  txt(ctx, 'red ' + a.toFixed(1) + '°', d._x - d._s - 6, d._y - d._s - 4, 14, rgba(RGB[0], 0.9), true, 'right');
+  if (solved) {
+    const ax = Math.atan2(sa, ca) + Math.PI, r = a * DEG, L = 170; // reversed beam axis, caustic elevation
+    ctx.strokeStyle = white(0.55); ctx.lineWidth = 1; ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(d._x, d._y); ctx.lineTo(d._x + L * Math.cos(ax), d._y + L * Math.sin(ax));
+    ctx.moveTo(d._x, d._y); ctx.lineTo(d._x + L * Math.cos(ax + r), d._y + L * Math.sin(ax + r));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(d._x, d._y, 70, ax, ax + r); ctx.stroke();
+    txt(ctx, Math.round(a) + '°', d._x + 88 * Math.cos(ax + r / 2), d._y + 88 * Math.sin(ax + r / 2), 13, white(0.85));
+  }
 }
 
 /** Seven-band arc across the top of the sky (finale), `a` = fade 0..1. */

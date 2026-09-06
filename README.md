@@ -27,7 +27,7 @@ Elements that are drawn dimmer are fixed. Releasing an element close to a workin
 
 ## The physics
 
-The refractive index of each of the seven bands follows Cauchy's equation `n(λ) = A + B/λ²` (dispersion deliberately exaggerated so a prism's fan is visible on screen), and every surface interaction is Snell's law in vector form with total internal reflection when the exit angle is too steep. Raindrops follow the primary-rainbow path deterministically, refract in, reflect once at the inner surface, refract out, which is why the finale's bundle of sunlight bunches at the rainbow angle with red on the outside.
+The refractive index of each of the seven bands follows Cauchy's equation `n(λ) = A + B/λ²`. For water the constants are anchored so that red light (700 nm) has its real index, 1.331, which puts the red rainbow at the true **42.4°**; the dispersion term is exaggerated for the other six bands so the fan is legible on a 960-pixel canvas (violet lands at 26.9° instead of the real 40.6°). Every surface interaction is Snell's law in vector form with total internal reflection when the exit angle is too steep. Raindrops follow the primary-rainbow path deterministically, refract in, reflect once at the inner surface, refract out, which is why the finale's bundle of sunlight bunches at the rainbow angle with red on the outside. The finale measures that angle live from the traced rays and prints it next to the drop.
 
 ## Development
 
