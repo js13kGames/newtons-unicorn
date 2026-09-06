@@ -17,3 +17,4 @@
 | 2026-09-06 00:42 | I2-C mobile (tree also holds E partials) | 58826 | 48395 | 24519 | 11975 | 9275 | 4037 |
 | 2026-09-06 00:45 | I2-D trace-on-dirty (tree also holds E partials) | 59480 | 48983 | 24572 | 11983 | 9293 | 4019 |
 | 2026-09-06 00:46 | I2-E presentation | 59651 | 49033 | 24600 | 12011 | 9301 | 4011 |
+| 2026-09-06 00:48 | I2-F playtest instrumentation | 60171 | 49394 | 24600 | 12011 | 9301 | 4011 |

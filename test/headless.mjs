@@ -27,8 +27,8 @@ const browser = await chromium.launch();
 let failures = 0;
 async function open(url, ms, shot, act) {
   const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
-  const errs = [];
-  page.on('console', m => { if (m.type() === 'error') errs.push('console.error: ' + m.text()); });
+  const errs = [], logs = [];
+  page.on('console', m => { if (m.type() === 'error') errs.push('console.error: ' + m.text()); else if (/^(L\d+ |TOTAL )/.test(m.text())) logs.push(m.text()); });
   page.on('pageerror', e => errs.push('pageerror: ' + e.message));
   page.on('requestfailed', r => errs.push('requestfailed: ' + r.url()));
   const reqs = [];
@@ -47,6 +47,7 @@ async function open(url, ms, shot, act) {
   if (!ok) failures++;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${url.replace(base, '')}  -> ${shot}${state ? `  [scr=${state.scr} level=${state.li + 1}${state.stat ? ` frames=${state.stat[0]} traces=${state.stat[1]}` : ''}]` : ''}`);
   for (const e of errs) console.log('      ' + e);
+  if (logs.length) console.log('      playtest: ' + logs.join(' | '));
   return state;
 }
 

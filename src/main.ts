@@ -1,8 +1,8 @@
 // Boot, resize/letterbox, frame loop, screen flow. Heavy work (tracing, audio) only happens after the first frame / gesture.
 import { W, H, drawBg, drawBeams, drawElements, drawTargets, mixColor } from './render.ts';
 import { drawHud, drawScreens, drawParticles, spawnBurst, drawSkyRainbow, drawCaustic, txt } from './ui.ts';
-import { G, TITLE, PLAY, SOLVED, load, loadLevel, goto, checkSolved, advance } from './state.ts';
-import { initInput, tick } from './input.ts';
+import { G, TITLE, PLAY, SOLVED, ENDING, load, loadLevel, goto, checkSolved, advance } from './state.ts';
+import { initInput, tick, stat } from './input.ts';
 import { trace, caustic } from './trace.ts';
 import { applySolution, TARGET, EMITTER, DROP } from './elements.ts';
 import { LEVELS } from './levels.ts';
@@ -29,7 +29,7 @@ load();
 goto(TITLE);
 initInput(cv);
 
-let fps = 60, prevStart = -1, lastWrong = 0, cau: number[] = [], frames = 0, traces = 0, tps = 0, lastSec = 0, lastTraces = 0;
+let fps = 60, prevStart = -1, lastWrong = 0, cau: number[] = [], frames = 0, traces = 0, tps = 0, lastSec = 0, lastTraces = 0, prevScr = 0;
 function frame(ms: number) {
   const t = ms / 1000, dt = Math.min(0.05, t - G._t);
   G._t = t;
@@ -55,8 +55,12 @@ function frame(ms: number) {
     }
   }
   setTones(s === PLAY || s === SOLVED ? mask : 0);
-  if (checkSolved()) fanfare(mask);
+  if (checkSolved()) {
+    fanfare(mask);
+    if (DEV) { console.log(`L${G._li + 1} ${(G._t - G._start).toFixed(1)} ${stat[0]} ${stat[1]}`); stat[0] = stat[1] = 0; } // playtest line: level, seconds, resets, gestures
+  }
   if (s === SOLVED && t - G._since > 2.5) advance();
+  if (DEV) { if (G._scr === ENDING && prevScr !== ENDING) console.log(`TOTAL ${G._tot.toFixed(1)}`); prevScr = G._scr; }
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);

@@ -20,8 +20,11 @@ export const toLogical = (cx: number, cy: number): [number, number] => {
   return v[3] ? [480 + (cy - v[2]) / v[0], 270 - (cx - v[1]) / v[0]] : [(cx - v[1]) / v[0], (cy - v[2]) / v[0]];
 };
 
+/** DEV playtest counters for the current level: [resets, pointer gestures]. Logged by main.ts on every solve. */
+export const stat = [0, 0];
+
 export function toggleMute() { G._mute = !G._mute; setMute(G._mute); save(); }
-export function resetLevel() { const s = G._start; loadLevel(G._li); G._start = s; sfx(SFX_WHOOSH); }
+export function resetLevel() { const s = G._start; loadLevel(G._li); G._start = s; sfx(SFX_WHOOSH); if (DEV) stat[0]++; }
 
 let lastTick = 0, holdT = 0;
 /** Rotate by degrees with a rate-limited tick sound. */
@@ -83,6 +86,7 @@ export function initInput(cv: HTMLCanvasElement) {
     }
     cv.setPointerCapture(e.pointerId);
     dragId = e.pointerId;
+    if (DEV) stat[1]++;
     const sel = G._sel, pad = G._touch ? 12 / Math.min(1, G._view[0]) : 0; // ~12 physical px on any screen
     const p = pick(G._els, x, y, pad);
     if (sel && sel._f & ROT) {
