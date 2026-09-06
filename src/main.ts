@@ -6,7 +6,7 @@ import { initInput, tick } from './input.ts';
 import { trace, caustic } from './trace.ts';
 import { applySolution, TARGET, EMITTER, DROP } from './elements.ts';
 import { LEVELS } from './levels.ts';
-import { setTones, fanfare, sfx, SFX_WRONG, SFX_WHOOSH } from './audio.ts';
+import { setTones, fanfare, sfx, tickMusic, SFX_WRONG, SFX_WHOOSH } from './audio.ts';
 import { drawUnicorn } from './unicorn.ts';
 
 const cv = document.getElementById('c') as HTMLCanvasElement;
@@ -33,6 +33,7 @@ function frame(ms: number) {
   const s = G._scr, inWorld = s >= PLAY, last = G._li === LEVELS.length - 1;
   if (G._start !== prevStart) { prevStart = G._start; if (inWorld) sfx(SFX_WHOOSH); }
   tick(dt);
+  tickMusic();
   const em = G._els[0], sun = em && em._m[0] > 1; // sun-mode emitter (finale) -> live caustic readout
   G._rays = trace(G._els, last ? 24 : 16);
   if (sun) cau = caustic(G._rays, Math.cos(em._a), Math.sin(em._a), em._m[0]);

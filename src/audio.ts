@@ -1,4 +1,5 @@
-// Procedural WebAudio: band tones, solve fanfare, ZzFX-style SFX, ambient pad, mute. Every call is a safe no-op until unlock().
+// Procedural WebAudio: band tones, solve fanfare, ZzFX-style SFX, a tiny step sequencer, compressor, mute.
+// Every call is a safe no-op until unlock().
 // The SFX synth is a trimmed port of ZzFX - Zuper Zmall Zound Zynth. MIT License, Copyright (c) 2019 Frank Force
 // (https://github.com/KilledByAPixel/ZzFX).
 import { G } from './state.ts';
@@ -18,15 +19,38 @@ const PRESET = [
   [.3, .1, 300, .15, .1, .4, 0, 1, 5, 0, 0, 0, 0, 2],   // level start: rising noisy whoosh
 ];
 
-let ac: AudioContext | undefined, master: GainNode, gains: GainNode[] = [], cur = 0;
+// Music: C major, 76 BPM, 4 bars of I-V-vi-IV (C, G, Am, F), looping. Chord tones kept in C3..B3, an octave below
+// the band tones so the flower chord stays distinct. Bass = one sine root per bar; arpeggio = 8 eighths per bar
+// walking the chord tones in the order ARP; sparkle = C6 on beat 1 of bars 1 and 3.
+const CHORD = [[130.81, 164.81, 196], [196, 246.94, 146.83], [220, 130.81, 164.81], [174.61, 220, 130.81]];
+const ROOT = [65.41, 98, 110, 87.31];
+const ARP = [0, 1, 2, 1, 0, 2, 1, 2];
+const STEP = 60 / 76 / 2; // one eighth note, seconds
+
+let ac: AudioContext | undefined, master: GainNode, music: GainNode, bass: BiquadFilterNode, arp: BiquadFilterNode;
+let gains: GainNode[] = [], cur = 0, nextT = 0, step = 0;
 const last: number[] = [];
 
 /** oscillator -> gain -> dest, started at t. */
-function osc(type: OscillatorType, f: number, g: number, dest: AudioNode | AudioParam = master, t = 0) {
+function osc(type: OscillatorType, f: number, g: number, dest: AudioNode = master, t = 0) {
   const o = ac!.createOscillator(), gn = ac!.createGain();
   o.type = type; o.frequency.value = f; gn.gain.value = g;
-  o.connect(gn).connect(dest as AudioNode); o.start(t);
+  o.connect(gn).connect(dest); o.start(t);
   return [o, gn] as const;
+}
+/** One enveloped note: linear attack `atk`, exponential decay (time constant `tau`), stopped after `dur`. */
+function note(type: OscillatorType, f: number, peak: number, dest: AudioNode, t: number, atk: number, tau: number, dur: number) {
+  const [o, g] = osc(type, f, 0, dest, t);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(peak, t + atk);
+  g.gain.setTargetAtTime(0, t + atk, tau);
+  o.stop(t + dur);
+}
+function lowpass(f: number) {
+  const lp = ac!.createBiquadFilter();
+  lp.frequency.value = f;
+  lp.connect(music);
+  return lp;
 }
 
 /** Render a ZzFX preset into an AudioBuffer at the context sample rate. */
@@ -51,16 +75,32 @@ function zz(p: number[]) {
 export function unlock() {
   if (ac) { if (ac.state !== 'running') ac.resume(); return; }
   try { ac = new AudioContext(); } catch { return; }
+  // master -> compressor -> out, so seven band tones + fanfare + music cannot clip
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -18; comp.ratio.value = 4; comp.attack.value = .005; comp.release.value = .15;
+  comp.connect(ac.destination);
   master = ac.createGain();
   master.gain.value = G._mute ? 0 : 1;
-  master.connect(ac.destination);
+  master.connect(comp);
+  music = ac.createGain();
+  music.connect(master);
+  bass = lowpass(300); arp = lowpass(1200);
   gains = NOTE.map(f => osc(TRI, f, 0)[1]);
-  // ambient pad: C2 sine + G2 triangle -> low-pass around 400 Hz, swept +-200 Hz by a 0.1 Hz LFO
-  const lp = ac.createBiquadFilter();
-  lp.frequency.value = 400;
-  lp.connect(master);
-  osc('sine', 65.41, .03, lp); osc(TRI, 98, .03, lp);
-  osc('sine', .1, 200, lp.frequency);
+  nextT = ac.currentTime + .1;
+}
+
+/** Sequencer: called every frame; schedules notes 0.25 s ahead on the audio clock. */
+export function tickMusic() {
+  if (!ac) return;
+  const now = ac.currentTime;
+  if (nextT < now - 1) nextT = now; // tab was hidden: do not burst-play the backlog
+  while (nextT < now + .25) {
+    const bar = step >> 3 & 3, i = step & 7, t = nextT;
+    if (!i) note('sine', ROOT[bar], .05, bass, t, .02, .9, STEP * 8);
+    note(TRI, CHORD[bar][ARP[i]], .03, arp, t, .01, .12, STEP * 1.5);
+    if (!i && !(bar & 1)) note('sine', 1046.5, .015, music, t, .01, .3, 1);
+    step++; nextT += STEP;
+  }
 }
 
 /** One-shot SFX, at most one identical sound per 40 ms. */
@@ -72,7 +112,7 @@ export function sfx(id: number) {
   s.connect(master); s.start();
 }
 
-/** Sustain the band tones in `mask` (bits R=1..V=64), release the rest. */
+/** Sustain the band tones in `mask` (bits R=1..V=64), release the rest; duck the music while any tone is on. */
 export function setTones(mask: number) {
   if (!ac || mask === cur) return;
   cur = mask;
@@ -82,6 +122,7 @@ export function setTones(mask: number) {
     g.gain.cancelScheduledValues(t);
     g.gain.setTargetAtTime(on ? LEVEL : 0, t, on ? .02 : .07);
   });
+  music.gain.setTargetAtTime(mask ? .55 : 1, t, .1);
 }
 
 /** Solve arpeggio: the lit notes ascending, then C5; 60 ms per step, the last note held ~1 s. */
@@ -98,7 +139,7 @@ export function fanfare(mask: number) {
   });
 }
 
-/** Ramp the master gain to 0 / 1 over ~50 ms. */
+/** Ramp the master gain to 0 / 1 over ~50 ms (covers tones, SFX and music). */
 export function setMute(m: boolean) {
   if (ac) master.gain.setTargetAtTime(m ? 0 : 1, ac.currentTime, .017);
 }
