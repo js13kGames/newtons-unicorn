@@ -29,7 +29,7 @@ const lit = (e: El) => [e._t, Math.round(e._x), Math.round(e._y), deg(e._a), e._
 const lv = () => LEVELS[G._li];
 
 /** Mirror the current elements into the level data (what R restores and Ctrl+S prints). */
-function sync() { lv()[2] = G._els.map(lit); }
+function sync() { lv()[2] = G._els.map(lit); G._dirty = true; }
 
 /** Re-index the stored solution after inserting (d = 1) or deleting (d = -1) the element at index i. */
 function reindex(i: number, d: number) {

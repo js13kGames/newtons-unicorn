@@ -21,6 +21,7 @@ function resize() {
   G._view = rot ? [s, w / 2, h / 2, 1] : [s, (w - W * s) / 2, (h - H * s) / 2, 0];
   cv.width = w * dpr; cv.height = h * dpr;
   cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  G._dirty = true;
 }
 addEventListener('resize', resize);
 resize();
@@ -28,7 +29,7 @@ load();
 goto(TITLE);
 initInput(cv);
 
-let fps = 60, prevStart = -1, lastWrong = 0, cau: number[] = [];
+let fps = 60, prevStart = -1, lastWrong = 0, cau: number[] = [], frames = 0, traces = 0, tps = 0, lastSec = 0, lastTraces = 0;
 function frame(ms: number) {
   const t = ms / 1000, dt = Math.min(0.05, t - G._t);
   G._t = t;
@@ -37,8 +38,12 @@ function frame(ms: number) {
   tick(dt);
   tickMusic();
   const em = G._els[0], sun = em && em._m[0] > 1; // sun-mode emitter (finale) -> live caustic readout
-  G._rays = trace(G._els, last ? 24 : 16);
-  if (sun) cau = caustic(G._rays, Math.cos(em._a), Math.sin(em._a), em._m[0]);
+  if (G._dirty) { // retrace only when geometry changed; drawing (shimmer, animations) still happens every frame
+    G._dirty = false;
+    G._rays = trace(G._els, last ? 24 : 16);
+    if (sun) cau = caustic(G._rays, Math.cos(em._a), Math.sin(em._a), em._m[0]);
+    if (DEV) traces++;
+  }
   let mask = 0;
   if (inWorld) for (const e of G._els) if (e._t === TARGET) {
     const st = e._h | (e._ok ? 128 : 0);
@@ -75,9 +80,11 @@ function frame(ms: number) {
 
   if (DEV) {
     fps += (1 / (dt || 1 / 60) - fps) * 0.05;
+    frames++;
+    if (t - lastSec >= 1) { tps = traces - lastTraces; lastTraces = traces; lastSec = t; (globalThis as any).NU_STAT = [frames, traces]; }
     const segs = G._rays.reduce((a, r) => a + r._p.length / 2 - 1, 0);
     const masks = G._els.filter(e => e._t === TARGET).map(e => e._h + (e._ok ? '✓' : '')).join(' ');
-    txt(ctx, `${fps | 0} fps · ${G._rays.length} rays · ${segs} segs · solved ${G._els.every(e => e._t !== TARGET || e._ok)} · masks ${masks}`, 8, H - 8, 11, '#8f8', false, 'left');
+    txt(ctx, `${fps | 0} fps · ${tps} traces/s · ${G._rays.length} rays · ${segs} segs · solved ${G._els.every(e => e._t !== TARGET || e._ok)} · masks ${masks}`, 8, H - 8, 11, '#8f8', false, 'left');
     const ed = (globalThis as any).NU_ED; // editor overlay hook (set by dev/editor.ts)
     if (ed) ed(ctx, dt);
   }
@@ -90,7 +97,7 @@ if (DEV) {
   const n = +q.get('level')!;
   if (n) {
     loadLevel(n - 1);
-    if (q.get('solve')) applySolution(G._els, LEVELS[n - 1][3]);
+    if (q.get('solve')) { applySolution(G._els, LEVELS[n - 1][3]); G._dirty = true; }
   }
   if (q.get('editor')) import('./dev/editor.ts').then(m => m.initEditor(cv, ctx));
 }

@@ -39,11 +39,13 @@ async function open(url, ms, shot, act) {
   await page.screenshot({ path: shot });
   const external = reqs.filter(u => !u.startsWith(base));
   if (external.length) errs.push('external requests: ' + external.join(', '));
-  const state = await page.evaluate(() => globalThis.NU ? { scr: NU._scr, li: NU._li } : null).catch(() => null);
+  const state = await page.evaluate(() => globalThis.NU ? { scr: NU._scr, li: NU._li, stat: globalThis.NU_STAT || null } : null).catch(() => null);
   await page.close();
-  const ok = errs.length === 0;
+  let ok = errs.length === 0;
+  // trace-on-dirty: a DEV page that sat still must have traced far fewer times than it drew frames
+  if (state && state.stat && !(state.stat[1] < state.stat[0])) { ok = false; errs.push(`traces ${state.stat[1]} not below frames ${state.stat[0]}`); }
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${url.replace(base, '')}  -> ${shot}${state ? `  [scr=${state.scr} level=${state.li + 1}]` : ''}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${url.replace(base, '')}  -> ${shot}${state ? `  [scr=${state.scr} level=${state.li + 1}${state.stat ? ` frames=${state.stat[0]} traces=${state.stat[1]}` : ''}]` : ''}`);
   for (const e of errs) console.log('      ' + e);
   return state;
 }

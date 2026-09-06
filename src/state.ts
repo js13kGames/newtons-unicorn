@@ -24,6 +24,7 @@ export const G = {
   _hold: 0,                       // mobile rotate button held: -1 / +1
   _parts: [] as number[][],       // particles [x, y, vx, vy, life, r, g, b]
   _solvedMask: 0,                 // OR of incident masks of satisfied flowers (drives band tones)
+  _dirty: true,                   // geometry changed since the last trace (drag, rotate, level/screen change, resize)
 };
 
 export function save() {
@@ -42,6 +43,7 @@ export function loadLevel(i: number) {
   G._els = mkEls(LEVELS[i]);
   G._sel = undefined;
   G._mode = G._hold = 0;
+  G._dirty = true;
   G._scr = PLAY;
   G._since = G._start = G._t;
   if (i > G._best) { G._best = i; save(); }
@@ -56,6 +58,7 @@ export function goto(scr: number) {
   G._since = G._t;
   G._sel = undefined;
   G._mode = G._hold = 0;
+  G._dirty = true;
 }
 
 /** Tap / Enter on a non-play screen. `cont` = the title's Continue button was hit. */

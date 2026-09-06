@@ -27,6 +27,7 @@ let lastTick = 0, holdT = 0;
 /** Rotate by degrees with a rate-limited tick sound. */
 export function rotate(e: El, deg: number) {
   e._a += deg * DEG;
+  G._dirty = true;
   if (G._t - lastTick > 0.08) { lastTick = G._t; sfx(SFX_TICK); }
 }
 /** Per-frame: a held mobile rotate button turns continuously after a short delay (a tap gave one 1-degree step). */
@@ -111,13 +112,13 @@ export function initInput(cv: HTMLCanvasElement) {
       const h = s && s._f & ROT && near(x, y, handlePos(s), 14);
       cv.style.cursor = h || pick(G._els, x, y, 0) ? 'grab' : 'default';
     }
-    if (G._mode) cv.style.cursor = 'grabbing';
+    if (G._mode) { G._dirty = true; cv.style.cursor = 'grabbing'; }
   });
 
   const up = (e: PointerEvent) => {
     if ((G._mode || G._hold) && e.pointerId !== dragId) return;
     if (e.type === 'pointerup') { unlock(); focus(); } // activation exists here for every pointer type; focus() keeps keys alive in iframes
-    if ((G._mode || G._hold) && G._sel) { snap(G._sel); sfx(SFX_DROP); }
+    if ((G._mode || G._hold) && G._sel) { snap(G._sel); G._dirty = true; sfx(SFX_DROP); }
     G._mode = G._hold = 0;
     cv.style.cursor = 'default';
   };
