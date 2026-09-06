@@ -4,7 +4,7 @@ import { drawHud, drawScreens, drawParticles, spawnBurst, drawSkyRainbow, drawCa
 import { G, TITLE, PLAY, SOLVED, ENDING, load, loadLevel, goto, checkSolved, advance } from './state.ts';
 import { initInput, tick, stat } from './input.ts';
 import { trace, caustic } from './trace.ts';
-import { applySolution, TARGET, EMITTER, DROP } from './elements.ts';
+import { applySolution, isSolved, TARGET, EMITTER, DROP } from './elements.ts';
 import { LEVELS } from './levels.ts';
 import { setTones, fanfare, sfx, tickMusic, SFX_WRONG, SFX_WHOOSH } from './audio.ts';
 import { drawUnicorn } from './unicorn.ts';
@@ -15,8 +15,10 @@ let dpr = 1;
 
 function resize() {
   dpr = Math.min(devicePixelRatio || 1, 2);
-  const w = innerWidth, h = innerHeight, rot = h > w ? 1 : 0;
-  // portrait: the 960x540 game is drawn turned 90 degrees so it fills the screen once the phone is turned (works with rotation lock)
+  const w = innerWidth || 1, h = innerHeight || 1; // never 0 (hidden / 0x0 iframe would break the bg cache)
+  // portrait on a touch device: the 960x540 game is drawn turned 90 degrees so it fills the screen once the phone is turned
+  // (works with rotation lock); tall desktop windows keep the plain letterbox
+  const rot = h > w && (matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints > 0) ? 1 : 0;
   const s = rot ? Math.min(w / H, h / W) : Math.min(w / W, h / H);
   G._view = rot ? [s, w / 2, h / 2, 1] : [s, (w - W * s) / 2, (h - H * s) / 2, 0];
   cv.width = w * dpr; cv.height = h * dpr;
@@ -41,7 +43,7 @@ function frame(ms: number) {
   if (G._dirty) { // retrace only when geometry changed; drawing (shimmer, animations) still happens every frame
     G._dirty = false;
     G._rays = trace(G._els, last ? 24 : 16);
-    if (sun) cau = caustic(G._rays, Math.cos(em._a), Math.sin(em._a), em._m[0]);
+    if (sun) cau = caustic(G._rays, Math.cos(em._a), Math.sin(em._a), isSolved(G._els) ? 0 : em._m[0]); // once solved, always show the angle
     if (DEV) traces++;
   }
   let mask = 0;

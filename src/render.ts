@@ -30,7 +30,7 @@ export function drawBg(ctx: Ctx, k: number) {
   if (!bgCache || k !== bgK) {
     bgK = k;
     bgCache = document.createElement('canvas');
-    bgCache.width = W * k; bgCache.height = H * k;
+    bgCache.width = Math.max(1, W * k | 0); bgCache.height = Math.max(1, H * k | 0);
     const c = bgCache.getContext('2d')!;
     c.scale(k, k);
     const g = c.createRadialGradient(W / 2, H * 0.9, 50, W / 2, H * 0.5, 700);

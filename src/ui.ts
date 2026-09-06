@@ -55,15 +55,18 @@ export function drawCaustic(ctx: Ctx, d: El, ang: number[], ca: number, sa: numb
   if (a < 0) return;
   txt(ctx, 'red ' + a.toFixed(1) + '°', d._x - d._s - 6, d._y - d._s - 4, 14, rgba(RGB[0], 0.9), true, 'right');
   if (solved) {
-    const ax = Math.atan2(sa, ca) + Math.PI, r = a * DEG, L = 170; // reversed beam axis, caustic elevation
-    ctx.strokeStyle = white(0.55); ctx.lineWidth = 1; ctx.setLineDash([3, 5]);
+    // dotted reversed-axis and caustic rays from the drop rim, an arc between them and the label at the caustic ray's end,
+    // all outside the drop and (for the finale layout) above the incoming bundle
+    const ax = Math.atan2(sa, ca) + Math.PI, r = a * DEG, R = d._s, L = R + 170;
+    const ray = (q: number, l: number): [number, number] => [d._x + l * Math.cos(q), d._y + l * Math.sin(q)];
+    ctx.strokeStyle = white(0.6); ctx.lineWidth = 1; ctx.setLineDash([3, 5]);
     ctx.beginPath();
-    ctx.moveTo(d._x, d._y); ctx.lineTo(d._x + L * Math.cos(ax), d._y + L * Math.sin(ax));
-    ctx.moveTo(d._x, d._y); ctx.lineTo(d._x + L * Math.cos(ax + r), d._y + L * Math.sin(ax + r));
+    ctx.moveTo(...ray(ax, R)); ctx.lineTo(...ray(ax, L));
+    ctx.moveTo(...ray(ax + r, R)); ctx.lineTo(...ray(ax + r, L));
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.beginPath(); ctx.arc(d._x, d._y, 70, ax, ax + r); ctx.stroke();
-    txt(ctx, Math.round(a) + '°', d._x + 88 * Math.cos(ax + r / 2), d._y + 88 * Math.sin(ax + r / 2), 13, white(0.85));
+    ctx.beginPath(); ctx.arc(d._x, d._y, L - 30, ax, ax + r); ctx.stroke();
+    txt(ctx, Math.round(a) + '°', ...ray(ax + r, L + 16), 13, white(0.9), true);
   }
 }
 
@@ -113,7 +116,7 @@ export function drawScreens(ctx: Ctx) {
       ctx.strokeStyle = white(0.4); ctx.lineWidth = 1.5; ctx.strokeRect(W / 2 - 80, 380, 160, 40);
       txt(ctx, S.CONTINUE + ' · ' + (G._best + 1), W / 2, 401, 17, white(0.8));
     }
-    if (innerHeight > innerWidth) txt(ctx, S.ROTATE_HINT, W / 2, H - 40, 15, white(0.5));
+    if (G._view[3]) txt(ctx, S.ROTATE_HINT, W / 2, H - 40, 15, white(0.5));
   } else if (s === INTRO) {
     for (let i = 0; i < 3; i++) {
       const a = Math.min(1, Math.max(0, (dt - i * 0.9) / 0.6));

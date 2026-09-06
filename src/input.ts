@@ -135,14 +135,18 @@ export function initInput(cv: HTMLCanvasElement) {
     const [x, y] = pos(e);
     const p = G._mode ? G._sel : pick(G._els, x, y, 0) || G._sel; // never re-target during a drag
     if (!p || !(p._f & ROT)) return;
-    acc += e.deltaMode ? e.deltaY * 33 : e.deltaY;             // Firefox line mode: 3 lines per notch
-    const n = Math.trunc(acc / 90);                            // one notch (~100 px) = 1 degree; trackpads accumulate
-    if (n) { acc -= n * 90; G._sel = p; rotate(p, n * (e.shiftKey ? 0.2 : 1)); }
+    // a discrete mouse notch = one step; line mode (Firefox: 3 lines per notch) and small trackpad deltas accumulate per 90 units
+    let n = 0;
+    if (e.deltaMode) acc += e.deltaY * 30;
+    else if (Math.abs(e.deltaY) >= 40) { acc = 0; n = Math.sign(e.deltaY); }
+    else acc += e.deltaY;
+    if (!n) { n = Math.trunc(acc / 90); acc -= n * 90; }
+    if (n) { G._sel = p; rotate(p, n * (e.shiftKey ? 0.2 : 1)); }
   }, { passive: false });
 
   addEventListener('keydown', e => {
-    unlock();
     const k = e.key.toLowerCase(), s = G._sel;
+    if (e.key.length === 1 || k.startsWith('arrow') || k === 'enter') unlock(); // only keys that grant user activation (not Esc / modifiers / lock keys)
     if (k === 'r') { if (G._scr === PLAY) resetLevel(); }
     else if (k === 'm') toggleMute();
     else if (k === 'escape') goto(TITLE);
