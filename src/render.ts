@@ -126,6 +126,16 @@ export function drawElements(ctx: Ctx, els: El[], sel: El | undefined, t: number
       const sg = segOf(e);
       ctx.strokeStyle = rgba(mixColor(e._m[0]), 0.45); ctx.lineWidth = 10; ctx.lineCap = 'butt'; line(ctx, sg);
       ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; line(ctx, sg);
+    } else if (e._t === WALL && e._m[0]) {
+      // cloud wall: a soft column of pale puffs along the (still absorbing) segment
+      const sg = segOf(e), n = e._s / 20 | 0;
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i <= n; i++) {
+        const u = i / n, px = sg[0] + (sg[2] - sg[0]) * u + Math.sin(i * 2.3) * 6, py = sg[1] + (sg[3] - sg[1]) * u + Math.cos(i * 1.9) * 6;
+        circle(ctx, px, py, 16 + 6 * Math.sin(i * 1.7 + t * 0.5)); ctx.fillStyle = 'rgba(200,215,255,0.09)'; ctx.fill();
+        circle(ctx, px - 3, py - 4, 8); ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
     } else if (e._t === WALL) {
       const sg = segOf(e);
       const g = ctx.createLinearGradient(sg[0], sg[1], sg[2], sg[3]);

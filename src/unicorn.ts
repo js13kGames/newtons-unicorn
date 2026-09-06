@@ -33,6 +33,10 @@ export function drawUnicorn(ctx: Ctx, e: El, t: number, glow: number) {
   const l = Math.hypot(px - nx, py - ny), fx = (ny - py) / l, fy = (px - nx) / l; // neck front-side normal
   const rip = (i: number) => Math.sin(t * 4 + i) * 3;
   ctx.lineCap = 'round';
+  if (gy < 500) { // hooves above the ground (high emitter): a small grassy mound to stand on
+    ctx.fillStyle = '#100e28'; ell(ctx, bx, gy + 3, 54, 10);
+    ctx.fillStyle = '#1f4a2c'; ell(ctx, bx, gy - 1, 50, 4);
+  }
   // tail: 7 strands hanging from the rump
   ctx.lineWidth = 4;
   for (let i = 0; i < 7; i++) {

@@ -97,7 +97,10 @@ function castRay(els: El[], segs: number[][][], ox: number, oy: number, dx: numb
       const ri = refIndex(t === DROP ? WATER : GLASS, b);
       let c = 1;
       if (!out) {
-        if (ghosts) { const [gx, gy] = reflect(dx, dy, nx, ny), gt = toEdge(hx, hy, gx, gy); gh.push(hx, hy, hx + gx * gt, hy + gy * gt); }
+        if (ghosts) { // decorative partial reflection, clipped at the canvas edge or the ground line (y = H - 22)
+          const [gx, gy] = reflect(dx, dy, nx, ny), gt = Math.min(toEdge(hx, hy, gx, gy), gy > 0 ? (H - 22 - hy) / gy : Infinity);
+          gh.push(hx, hy, hx + gx * gt, hy + gy * gt);
+        }
         k = 0; [dx, dy, c] = refract(dx, dy, nx, ny, 1 / ri);
       }
       else if (t === DROP && ++k === 1) { [dx, dy] = reflect(dx, dy, nx, ny); c = 2; }
