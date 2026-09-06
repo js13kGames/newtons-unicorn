@@ -37,8 +37,11 @@ npm run dev        # Vite dev server (http://localhost:5173)
 npm test           # tracer + level tests (Node test runner)
 npm run build      # esbuild -> Terser -> Roadroller -> dist/index.html -> dist/game.zip (fails if > 13,312 bytes)
 npm run build:fast # same without Roadroller (quick size checks)
-npm run headless   # Playwright: zero-console-error check + a screenshot of every solved level
+npm run headless   # Playwright: zero-console-error check + a screenshot of every solved level (+ touch/portrait checks)
+npm run gif        # Playwright + gifenc: screenshots/finale.gif for the entry page
 ```
+
+On phones the game rotates itself when held in portrait, so turn the phone sideways; the on-screen ⟲ ⟳ buttons rotate the selected element.
 
 Dev URL parameters: `?level=N` jumps to a level, `?solve=1` applies its authored solution, `?editor=1` opens the level editor overlay (keys are listed on screen). `node tools/probe.mjs --level N [--solve]` traces a level in Node and prints where each color band lands.
 
