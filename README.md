@@ -16,14 +16,14 @@ Each level shows the unicorn, a few optical elements and grey flowers. Every flo
 |---|---|---|
 | select | click | tap |
 | move an element | drag it | drag it |
-| rotate an element | drag its rotate handle, mouse wheel over it (1 degree per notch), or `←`/`→` / `Q`/`E` (hold to repeat, `Shift` for 0.2 degrees) | drag its rotate handle, or hold the on-screen ⟲ ⟳ buttons |
-| aim the unicorn | drag the horn tip | drag the horn tip |
+| rotate an element | drag its rotate ring (always shown on rotatable pieces), mouse wheel over it (1 degree per notch), or `←`/`→` / `Q`/`E` (hold to repeat, `Shift` for 0.2 degrees) | drag its rotate ring, or hold the on-screen ⟲ ⟳ buttons |
+| aim the unicorn | drag the ring on the horn tip | drag the ring on the horn tip |
 | reset level | `R` or the ⟲ button | ⟲ button |
 | mute | `M` or the ♪ button | ♪ button |
 | title screen | `Esc` or the ≡ button | ≡ button |
 | continue after a solve | `Enter` / click | tap |
 
-Elements that are drawn dimmer are fixed. Releasing an element close to a working position snaps it into place.
+Bright pieces with a breathing outline can be moved or turned (they wiggle when a level starts). Bolted, greyed pieces are fixed; clicking one shakes it and shows a padlock. Releasing an element close to a working position snaps it into place, and a correct configuration held under the pointer solves after half a second.
 
 ## The physics
 
