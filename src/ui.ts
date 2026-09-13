@@ -46,6 +46,8 @@ export function drawHud(ctx: Ctx) {
     if (G._mute) { ctx.strokeStyle = '#f66'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(HUD[1][0] - 9, HUD[1][1] + 9); ctx.lineTo(HUD[1][0] + 9, HUD[1][1] - 9); ctx.stroke(); }
   }
   txt(ctx, lv[1], W / 2, H - 38, 16, white(0.75));
+  const u = G._t - G._since; // level 4, the first level with a fixed optical piece next to a movable one: explain the bolts for 5 s
+  if (G._li === 3 && G._scr === PLAY && u < 5) txt(ctx, S.BOLT_HINT, W / 2, H - 17, 14, white(0.7 * Math.min(1, 5 - u)));
   if (G._touch && G._sel && G._sel._f & ROT) { button(ctx, MB[0], MB_R, 2, -1); button(ctx, MB[1], MB_R, 2); }
 }
 

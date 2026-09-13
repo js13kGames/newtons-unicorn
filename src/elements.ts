@@ -72,19 +72,24 @@ export function elDist(e: El, x: number, y: number) {
   }
 }
 
-/** Nearest interactive element whose (inflated) hit area contains the point, or undefined. */
-export function pick(els: El[], x: number, y: number, pad: number): El | undefined {
+/** Fixed optical piece (prism / drop / mirror / filter without MOVE or ROT): drawn dimmed and bolted, clicking it gives locked feedback. Walls are scenery. */
+export const fixedOptic = (e: El) => !e._f && e._t > EMITTER && e._t < WALL;
+
+/** Nearest element whose (inflated) hit area contains the point, or undefined. Interactive pieces only unless `any`.
+ *  A rotatable piece also owns its rotate ring (the ring is always drawn, so it must be grabbable while unselected). */
+export function pick(els: El[], x: number, y: number, pad: number, any?: number): El | undefined {
   let best: El | undefined, bd = pad;
   for (const e of els) {
-    if (!(e._f & (MOVE | ROT))) continue;
-    const d = elDist(e, x, y);
+    if (!any && !(e._f & (MOVE | ROT))) continue;
+    let d = elDist(e, x, y);
+    if (e._f & ROT) { const [hx, hy] = handlePos(e); d = Math.min(d, Math.hypot(x - hx, y - hy) - 12); }
     if (d < bd) { bd = d; best = e; }
   }
   return best;
 }
 
-/** Rotate-handle position: a small ring on a stalk from the element center. */
+/** Rotate-handle position: a small ring on a stalk from the element center; the emitter's ring sits on the horn tip itself. */
 export function handlePos(e: El): [number, number] {
-  const r = e._t === EMITTER ? 40 : (e._t === PRISM || e._t === DROP ? e._s : e._s / 2) + 22;
+  const r = e._t === EMITTER ? 0 : (e._t === PRISM || e._t === DROP ? e._s : e._s / 2) + 22;
   return [e._x + Math.cos(e._a) * r, e._y + Math.sin(e._a) * r];
 }

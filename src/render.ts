@@ -1,7 +1,8 @@
 // Canvas 2D rendering: background, beams, elements, flowers, HUD, screens.
 import type { El } from './elements.ts';
-import { EMITTER, PRISM, DROP, MIRROR, FILTER, WALL, TARGET, ROT, W, H, prismVerts, segOf, handlePos } from './elements.ts';
+import { EMITTER, PRISM, DROP, MIRROR, FILTER, WALL, TARGET, MOVE, ROT, DEG, W, H, prismVerts, segOf, handlePos, fixedOptic } from './elements.ts';
 import type { Ray } from './trace.ts';
+import { G, PLAY } from './state.ts';
 
 export { W, H };
 export type Ctx = CanvasRenderingContext2D;
@@ -99,11 +100,45 @@ function line(ctx: Ctx, s: number[]) {
   ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); ctx.stroke();
 }
 
-/** Optical elements (not targets / emitter). Selected element gets a pulsing outline + rotate handle. */
+/** Draw-only jitter, applied to the context (the caller saves / restores; element transforms are never touched, so the trace
+ *  cannot jitter): the level-start wiggle of interactive pieces (damped sine, +-3 px for MOVE / +-3 deg for ROT, 0.6 s, again
+ *  every 10 s until the level's first drag or rotate) and the 150 ms shake of a clicked fixed piece. */
+export function jit(ctx: Ctx, e: El, t: number) {
+  let dx = 0, da = 0;
+  if (G._scr === PLAY && e._f && !G._moved) {
+    const u = (t - G._since) % 10;
+    if (u < 0.6) { const f = Math.exp(-u * 4) * Math.sin(u * 40); if (e._f & MOVE) dx = 3 * f; else da = 3 * DEG * f; }
+  } else if (e === G._lk) {
+    const u = t - G._lkT;
+    if (u < 0.15) dx = 2 * (1 - u / 0.15) * Math.sin(u * 90);
+  }
+  ctx.translate(e._x + dx, e._y); ctx.rotate(da); ctx.translate(-e._x, -e._y);
+}
+
+/** Outline path of an element: prism triangle, drop circle, the segment of a mirror / filter / wall, a ring around the horn tip. */
+function shape(ctx: Ctx, e: El) {
+  if (e._t === PRISM) poly(ctx, prismVerts(e));
+  else if (e._t < MIRROR) circle(ctx, e._x, e._y, e._t ? e._s + 3 : 20);
+  else { const s = segOf(e); ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); }
+}
+
+/** Optical elements (not targets / the unicorn body). In play, interactive pieces get a breathing halo (warm and brighter when
+ *  selected) and an always-visible rotate ring; fixed optical pieces are dimmed, desaturated and bolted and show a padlock after
+ *  a locked click. Walls are plain scenery. On the title / intro the demo elements are drawn plain. */
 export function drawElements(ctx: Ctx, els: El[], sel: El | undefined, t: number) {
+  const play = G._scr >= PLAY;
   for (const e of els) {
-    ctx.globalAlpha = e._f ? 1 : 0.7;
-    const s = e._s;
+    const s = e._s, seg = e._t >= MIRROR, fx = play && fixedOptic(e);
+    ctx.save();
+    jit(ctx, e, t);
+    if (play && e._f) { // breathing halo under the body: white 0.25..0.55 at 0.8 Hz
+      const p = Math.sin(t * 5);
+      ctx.strokeStyle = e === sel ? rgba([255, 240, 200], 0.6 + 0.2 * p) : rgba([255, 255, 255], 0.4 + 0.15 * p);
+      ctx.lineWidth = seg ? 14 : 4; ctx.lineCap = 'round';
+      shape(ctx, e); ctx.stroke();
+    }
+    ctx.globalAlpha = e._f ? 1 : fx ? 0.6 : 0.7;
+    if (fx) ctx.filter = 'saturate(.2)'; // no-op where canvas filters are unsupported (the alpha and bolts still mark the piece)
     if (e._t === PRISM) {
       const v = prismVerts(e);
       poly(ctx, v);
@@ -143,21 +178,30 @@ export function drawElements(ctx: Ctx, els: El[], sel: El | undefined, t: number
       ctx.strokeStyle = g; ctx.lineWidth = 12; ctx.lineCap = 'round'; line(ctx, sg);
       ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; line(ctx, sg);
     }
-    ctx.globalAlpha = 1;
-    if (e === sel) {
-      const p = 0.55 + 0.45 * Math.sin(t * 5);
-      ctx.strokeStyle = rgba([255, 240, 200], 0.4 + 0.4 * p); ctx.lineWidth = 2;
-      if (e._t === PRISM) { poly(ctx, prismVerts(e)); ctx.stroke(); }
-      else if (e._t === DROP) { circle(ctx, e._x, e._y, s + 4); ctx.stroke(); }
-      else if (e._t !== EMITTER) { ctx.lineWidth = 16; ctx.lineCap = 'round'; ctx.globalAlpha = 0.25; line(ctx, segOf(e)); ctx.globalAlpha = 1; }
-      if (e._f & ROT) {
-        const [hx, hy] = handlePos(e);
-        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,240,200,0.7)';
-        line(ctx, [e._x, e._y, hx, hy]);
-        circle(ctx, hx, hy, 9); ctx.fillStyle = 'rgba(30,25,50,0.9)'; ctx.fill(); ctx.stroke();
-        circle(ctx, hx, hy, 3); ctx.fillStyle = '#ffe0a0'; ctx.fill();
-      }
+    ctx.filter = 'none'; ctx.globalAlpha = 1;
+    if (fx) { // bolts: the base corners of a prism, the underside of a drop, both ends of a mirror / filter
+      const pv = prismVerts(e);
+      const v = e._t === PRISM ? [2, 3, 4, 5].map(i => pv[i] * 0.72 + (i & 1 ? e._y : e._x) * 0.28)
+        : e._t === DROP ? [e._x - s * 0.45, e._y + s * 0.8, e._x + s * 0.45, e._y + s * 0.8] : segOf(e);
+      for (let i = 0; i < 4; i += 2) { circle(ctx, v[i], v[i + 1], 3); ctx.fillStyle = '#2a2740'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
     }
+    if (play && e._f & ROT) { // rotate ring: 40 % unselected, 100 % selected; for the emitter it sits on the horn tip (no stalk, hollow)
+      const [hx, hy] = handlePos(e);
+      ctx.globalAlpha = e === sel ? 1 : 0.4;
+      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,240,200,0.7)';
+      line(ctx, [e._x, e._y, hx, hy]);
+      circle(ctx, hx, hy, 9); if (e._t) { ctx.fillStyle = 'rgba(30,25,50,0.9)'; ctx.fill(); } ctx.stroke();
+      circle(ctx, hx, hy, 3); ctx.fillStyle = '#ffe0a0'; ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (e === G._lk && t - G._lkT < 0.6) { // padlock above a clicked fixed piece: rounded body + shackle arc, fading out
+      const ly = e._y - (seg ? s / 2 : s) - 16;
+      ctx.globalAlpha = Math.min(1, (0.6 - t + G._lkT) * 4);
+      ctx.fillStyle = ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(e._x - 7, ly - 5, 14, 11, 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e._x, ly - 6, 4.5, Math.PI, 0); ctx.stroke();
+    }
+    ctx.restore();
   }
 }
 

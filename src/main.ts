@@ -1,5 +1,5 @@
 // Boot, resize/letterbox, frame loop, screen flow. Heavy work (tracing, audio) only happens after the first frame / gesture.
-import { W, H, drawBg, drawBeams, drawElements, drawTargets, mixColor } from './render.ts';
+import { W, H, drawBg, drawBeams, drawElements, drawTargets, mixColor, jit } from './render.ts';
 import { drawHud, drawScreens, drawParticles, spawnBurst, drawSkyRainbow, drawCaustic, txt } from './ui.ts';
 import { G, TITLE, PLAY, SOLVED, ENDING, load, loadLevel, goto, checkSolved, advance } from './state.ts';
 import { initInput, tick, stat } from './input.ts';
@@ -31,7 +31,7 @@ load();
 goto(TITLE);
 initInput(cv);
 
-let fps = 60, prevStart = -1, lastWrong = 0, cau: number[] = [], frames = 0, traces = 0, tps = 0, lastSec = 0, lastTraces = 0, prevScr = 0;
+let fps = 60, prevStart = -1, lastWrong = 0, cau: number[] = [], frames = 0, traces = 0, tps = 0, lastSec = 0, lastTraces = 0, prevScr = 0, wig = 0;
 function frame(ms: number) {
   const t = ms / 1000, dt = Math.min(0.05, t - G._t);
   G._t = t;
@@ -39,6 +39,10 @@ function frame(ms: number) {
   if (G._start !== prevStart) { prevStart = G._start; if (inWorld) sfx(SFX_WHOOSH); }
   tick(dt);
   tickMusic();
+  if (s === PLAY && !G._moved) { // one sparkle per interactive piece at the start of each wiggle (level start, then every 10 s until the first gesture)
+    const w = G._since + 10 * ((t - G._since) / 10 | 0);
+    if (w !== wig) { wig = w; for (const e of G._els) if (e._f) G._parts.push([e._x, e._y - 14, 0, -30, 0.7, 255, 255, 255]); }
+  }
   const em = G._els[0], sun = em && em._m[0] > 1; // sun-mode emitter (finale) -> live caustic readout
   if (G._dirty) { // retrace only when geometry changed; drawing (shimmer, animations) still happens every frame
     G._dirty = false;
@@ -79,7 +83,7 @@ function frame(ms: number) {
     const d = sun && G._els.find(e => e._t === DROP);
     if (d) drawCaustic(ctx, d, cau, Math.cos(em._a), Math.sin(em._a), s > PLAY);
   }
-  for (const e of G._els) if (e._t === EMITTER) drawUnicorn(ctx, e, t, s > PLAY ? Math.min(1, (t - G._since) * 2) : 0);
+  for (const e of G._els) if (e._t === EMITTER) { ctx.save(); jit(ctx, e, t); drawUnicorn(ctx, e, t, s > PLAY ? Math.min(1, (t - G._since) * 2) : 0); ctx.restore(); }
   drawParticles(ctx, dt);
   if (s === PLAY || s === SOLVED) drawHud(ctx);
   drawScreens(ctx);

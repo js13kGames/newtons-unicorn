@@ -84,6 +84,34 @@ for (const [w, h, name] of [[800, 360, 'phone-landscape'], [360, 800, 'phone-por
   for (const e of errs) console.log('      ' + e);
   await ctxm.close();
 }
+// 1d. affordances (level 4): a click on the fixed prism changes no transform (locked feedback only, cursor not-allowed, no error);
+//     a 20 px body drag moves the mirror and one wheel notch over it turns it
+{
+  const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+  const errs = [];
+  page.on('console', m => { if (m.type() === 'error') errs.push('console.error: ' + m.text()); });
+  page.on('pageerror', e => errs.push('pageerror: ' + e.message));
+  await page.goto(`${base}/dev/index.html?level=4`);
+  await page.waitForTimeout(300);
+  const snap = () => page.evaluate(() => JSON.stringify(NU._els.map(e => [e._x, e._y, e._a])));
+  const before = await snap();
+  await page.mouse.click(400, 420); // the fixed prism
+  await page.waitForTimeout(200);
+  const lock = await page.evaluate(() => ({ lk: NU._lk ? NU._lk._t : null, cursor: document.getElementById('c').style.cursor, moved: NU._moved }));
+  const unchanged = (await snap()) === before;
+  await page.mouse.move(600, 400); await page.mouse.down(); await page.mouse.move(620, 400, { steps: 5 }); await page.mouse.up(); // mirror body, 20 px
+  await page.waitForTimeout(100);
+  const mid = await page.evaluate(() => [NU._els[2]._x, NU._els[2]._a]);
+  await page.mouse.move(620, 400); await page.mouse.wheel(0, 100); // one notch over the mirror
+  await page.waitForTimeout(100);
+  const after = await page.evaluate(() => [NU._els[2]._x, NU._els[2]._a, NU._moved]);
+  await page.screenshot({ path: 'screenshots/affordance.png' });
+  const ok = errs.length === 0 && unchanged && lock.lk === 1 && lock.cursor === 'not-allowed' && !lock.moved && mid[0] === 620 && after[1] !== mid[1] && after[2];
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  affordances level 4  -> screenshots/affordance.png  [fixed prism click: unchanged=${unchanged} lock=${lock.lk} cursor=${lock.cursor}; mirror drag x ${before && JSON.parse(before)[2][0]}->${mid[0]}, wheel a ${mid[1].toFixed(3)}->${after[1].toFixed(3)}, moved=${after[2]}]`);
+  for (const e of errs) console.log('      ' + e);
+  await page.close();
+}
 // 2. DEV bundle: every level solved via URL
 const { LEVELS } = await import('../src/levels.ts');
 for (let n = 1; n <= LEVELS.length; n++) {

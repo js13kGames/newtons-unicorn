@@ -25,6 +25,9 @@ export const G = {
   _parts: [] as number[][],       // particles [x, y, vx, vy, life, r, g, b]
   _solvedMask: 0,                 // OR of incident masks of satisfied flowers (drives band tones)
   _dirty: true,                   // geometry changed since the last trace (drag, rotate, level/screen change, resize)
+  _moved: false,                  // a drag / rotate happened in this level (ends the level-start wiggle; survives R)
+  _lk: undefined as El | undefined, // fixed optical piece that was clicked (draw-only shake + padlock)
+  _lkT: 0,                        // time of that click (s)
 };
 
 export function save() {
@@ -41,7 +44,8 @@ export function load() {
 export function loadLevel(i: number) {
   G._li = i;
   G._els = mkEls(LEVELS[i]);
-  G._sel = undefined;
+  G._sel = G._lk = undefined;
+  G._moved = false;
   G._mode = G._hold = 0;
   G._dirty = true;
   G._scr = PLAY;

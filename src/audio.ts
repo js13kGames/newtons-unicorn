@@ -4,7 +4,7 @@
 // (https://github.com/KilledByAPixel/ZzFX).
 import { G } from './state.ts';
 
-export const SFX_PICK = 0, SFX_DROP = 1, SFX_TICK = 2, SFX_WRONG = 3, SFX_CLICK = 4, SFX_WHOOSH = 5;
+export const SFX_PICK = 0, SFX_DROP = 1, SFX_TICK = 2, SFX_WRONG = 3, SFX_CLICK = 4, SFX_WHOOSH = 5, SFX_THUNK = 6;
 
 /** Band pitches R..V = C4..B4 (higher optical frequency -> higher pitch). */
 const NOTE = [261.63, 293.66, 329.63, 349.23, 392, 440, 493.88];
@@ -17,6 +17,7 @@ const PRESET = [
   [.15, .05, 180, .01, .1, .2, 1, 1, 0, 0, -40, .1],    // wrong color: soft low two-tone bonk
   [.2, .05, 900, 0, .01, .05, 0, 1, -8],                // UI click
   [.3, .1, 300, .15, .1, .4, 0, 1, 5, 0, 0, 0, 0, 2],   // level start: rising noisy whoosh
+  [.25, .05, 90, .005, .04, .12, 1, 1, -.5],            // locked piece: low short falling thunk
 ];
 
 // Music: C major, 76 BPM, 4 bars of I-V-vi-IV (C, G, Am, F), looping. Chord tones kept in C3..B3, an octave below
@@ -103,9 +104,9 @@ export function tickMusic() {
   }
 }
 
-/** One-shot SFX, at most one identical sound per 40 ms. */
-export function sfx(id: number) {
-  if (!ac || ac.currentTime - last[id] < .04) return;
+/** One-shot SFX, at most one identical sound per `gap` seconds (40 ms by default). */
+export function sfx(id: number, gap = .04) {
+  if (!ac || ac.currentTime - last[id] < gap) return;
   last[id] = ac.currentTime;
   const s = ac.createBufferSource();
   s.buffer = zz(PRESET[id]);

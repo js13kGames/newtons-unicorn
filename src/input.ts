@@ -1,8 +1,8 @@
 // Pointer Events (mouse + touch share one vocabulary), keyboard, HUD buttons, mobile rotate buttons, soft snap.
 import { G, PLAY, TITLE, INTRO, SOLVED, loadLevel, goto, advance, save } from './state.ts';
-import { pick, handlePos, MOVE, ROT, EMITTER, PRISM, MIRROR, WALL, W, H, DEG, type El } from './elements.ts';
+import { pick, handlePos, fixedOptic, MOVE, ROT, EMITTER, PRISM, MIRROR, WALL, W, H, DEG, type El } from './elements.ts';
 import { LEVELS } from './levels.ts';
-import { unlock, sfx, setMute, SFX_PICK, SFX_DROP, SFX_TICK, SFX_CLICK, SFX_WHOOSH } from './audio.ts';
+import { unlock, sfx, setMute, SFX_PICK, SFX_DROP, SFX_TICK, SFX_CLICK, SFX_WHOOSH, SFX_THUNK } from './audio.ts';
 
 /** HUD buttons (top-right): 0 title, 1 mute, 2 reset. */
 export const HUD: number[][] = [[W - 30, 28], [W - 76, 28], [W - 122, 28]];
@@ -24,13 +24,13 @@ export const toLogical = (cx: number, cy: number): [number, number] => {
 export const stat = [0, 0];
 
 export function toggleMute() { G._mute = !G._mute; setMute(G._mute); save(); }
-export function resetLevel() { const s = G._start; loadLevel(G._li); G._start = s; sfx(SFX_WHOOSH); if (DEV) stat[0]++; }
+export function resetLevel() { const s = G._start, m = G._moved; loadLevel(G._li); G._start = s; G._moved = m; sfx(SFX_WHOOSH); if (DEV) stat[0]++; }
 
 let lastTick = 0, holdT = 0;
 /** Rotate by degrees with a rate-limited tick sound. */
 export function rotate(e: El, deg: number) {
   e._a += deg * DEG;
-  G._dirty = true;
+  G._dirty = G._moved = true;
   if (G._t - lastTick > 0.08) { lastTick = G._t; sfx(SFX_TICK); }
 }
 /** Per-frame: a held mobile rotate button turns continuously after a short delay (a tap gave one 1-degree step). */
@@ -89,19 +89,20 @@ export function initInput(cv: HTMLCanvasElement) {
     if (DEV) stat[1]++;
     const sel = G._sel, pad = G._touch ? 12 / Math.min(1, G._view[0]) : 0; // ~12 physical px on any screen
     const p = pick(G._els, x, y, pad);
-    if (sel && sel._f & ROT) {
-      if (G._touch && !p) for (let i = 0; i < 2; i++) if (near(x, y, MB[i], hitR(MB_R + 10))) {
-        G._hold = i ? 1 : -1; holdT = G._t; rotate(sel, G._hold);
-        return;
-      }
-      const h = handlePos(sel);
-      if (near(x, y, h, 14 + pad)) { G._mode = 2; offa = sel._a - Math.atan2(y - sel._y, x - sel._x); sfx(SFX_PICK); return; }
+    if (sel && sel._f & ROT && G._touch && !p) for (let i = 0; i < 2; i++) if (near(x, y, MB[i], hitR(MB_R + 10))) {
+      G._hold = i ? 1 : -1; holdT = G._t; rotate(sel, G._hold);
+      return;
     }
     G._sel = p;
     if (p) {
       sfx(SFX_PICK);
-      if (p._f & MOVE) { G._mode = 1; offx = p._x - x; offy = p._y - y; }
-      else { G._mode = 2; offa = p._t === EMITTER ? 0 : p._a - Math.atan2(y - p._y, x - p._x); } // body drag rotates relative; the horn aims absolutely
+      // the rotate ring (always drawn, part of pick's hit area) rotates; a body drag moves a MOVE piece and rotates a ROT-only one
+      // (relative to the grab angle; the horn aims absolutely)
+      if (p._f & MOVE && !(p._f & ROT && near(x, y, handlePos(p), 14 + pad))) { G._mode = 1; offx = p._x - x; offy = p._y - y; }
+      else { G._mode = 2; offa = p._t === EMITTER ? 0 : p._a - Math.atan2(y - p._y, x - p._x); }
+    } else {
+      const q = pick(G._els, x, y, pad, 1); // locked feedback on a fixed optical piece: draw-only shake, low thunk, padlock (walls: nothing)
+      if (q && fixedOptic(q)) { G._lk = q; G._lkT = G._t; sfx(SFX_THUNK, .3); }
     }
   });
 
@@ -112,19 +113,22 @@ export function initInput(cv: HTMLCanvasElement) {
     else if (G._mode === 2 && s) {
       const dx = x - s._x, dy = y - s._y;
       if (s._t !== EMITTER || dx * dx + dy * dy > 900) s._a = Math.atan2(dy, dx) + offa; // dead zone: the horn tip is the rotation center
-    } else if (G._scr === PLAY && e.pointerType === 'mouse') {
-      const h = s && s._f & ROT && near(x, y, handlePos(s), 14);
-      cv.style.cursor = h || pick(G._els, x, y, 0) ? 'grab' : 'default';
-    }
-    if (G._mode) { G._dirty = true; cv.style.cursor = 'grabbing'; }
+    } else if (e.pointerType === 'mouse') hover(e);
+    if (G._mode) { G._dirty = G._moved = true; cv.style.cursor = 'grabbing'; }
   });
+
+  /** Desktop cursor: grab over an interactive piece (or its ring), not-allowed over a fixed optical piece, default elsewhere. */
+  const hover = (e: PointerEvent) => {
+    const [x, y] = pos(e), on = G._scr === PLAY, p = on && pick(G._els, x, y, 0), q = p || on && pick(G._els, x, y, 0, 1);
+    cv.style.cursor = p ? 'grab' : q && fixedOptic(q) ? 'not-allowed' : 'default';
+  };
 
   const up = (e: PointerEvent) => {
     if ((G._mode || G._hold) && e.pointerId !== dragId) return;
     if (e.type === 'pointerup') { unlock(); focus(); } // activation exists here for every pointer type; focus() keeps keys alive in iframes
     if ((G._mode || G._hold) && G._sel) { snap(G._sel); G._dirty = true; sfx(SFX_DROP); }
     G._mode = G._hold = 0;
-    cv.style.cursor = 'default';
+    hover(e);
   };
   cv.addEventListener('pointerup', up);
   cv.addEventListener('pointercancel', up);
