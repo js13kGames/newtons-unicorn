@@ -16,7 +16,7 @@ const PRESET = [
   [.06, .1, 1800, 0, .005, .02],                        // rotate tick: 25 ms sine pip, quiet
   [.15, .05, 180, .01, .1, .2, 1, 1, 0, 0, -40, .1],    // wrong color: soft low two-tone bonk
   [.2, .05, 900, 0, .01, .05, 0, 1, -8],                // UI click
-  [.3, .1, 300, .15, .1, .4, 0, 1, 5, 0, 0, 0, 0, 2],   // level start: rising noisy whoosh
+  [.1, .1, 300, .15, .1, .4, 0, 1, 5, 0, 0, 0, 0, 2],   // level start: rising noisy whoosh (capped at the music bus peak, ~0.1)
   [.25, .05, 90, .005, .04, .12, 1, 1, -.5],            // locked piece: low short falling thunk
 ];
 
@@ -126,11 +126,15 @@ export function setTones(mask: number) {
   music.gain.setTargetAtTime(mask ? .55 : 1, t, .1);
 }
 
-/** Solve arpeggio: the lit notes ascending, then C5; 60 ms per step, the last note held ~1 s. */
+/** Solve arpeggio: the lit notes ascending, then C5; 60 ms per step, the last note held ~1 s.
+ *  The music bus ducks to 0.3 for the fanfare and 1 s after it, then ramps back (tau 0.3 s). */
 export function fanfare(mask: number) {
   if (!ac) return;
   const notes = NOTE.filter((_, i) => mask >> i & 1).concat(523.25);
   let t = ac.currentTime;
+  music.gain.cancelScheduledValues(t);
+  music.gain.setTargetAtTime(.3, t, .02);
+  music.gain.setTargetAtTime(1, t + notes.length * .06 + 2.2, .3);
   notes.forEach((f, i) => {
     const hold = i < notes.length - 1 ? .05 : .9, [o, g] = osc(TRI, f, 0, master, t);
     g.gain.setTargetAtTime(.1, t, .005);
