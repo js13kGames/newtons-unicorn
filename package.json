@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Newton's Unicorn - an optics puzzle for js13kGames 2026 (Unicorns and Rainbows)",
+  "author": "mxingweb",
   "scripts": {
     "dev": "vite",
     "build": "node build.mjs",

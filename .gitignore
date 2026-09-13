@@ -2,3 +2,6 @@ node_modules/
 dist/
 screenshots/
 .vite/
+*LAUDE.md
+notes/
+.?laude/
