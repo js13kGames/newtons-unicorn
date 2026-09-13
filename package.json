@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "node build.mjs",
     "build:fast": "node build.mjs --fast",
-    "test": "node --test test/trace.test.ts test/levels.test.ts",
+    "test": "node --test test/trace.test.ts test/levels.test.ts test/state.test.ts",
     "typecheck": "tsc --noEmit",
     "headless": "node test/headless.mjs",
     "gif": "node tools/gif.mjs"

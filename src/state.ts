@@ -1,5 +1,5 @@
 // Shared mutable game state + level/screen transitions. Imported by main, input, render, audio.
-import { mkEls, isSolved, type El } from './elements.ts';
+import { mkEls, isSolved, PRISM, MIRROR, WALL, DEG, type El } from './elements.ts';
 import { LEVELS, DEMO } from './levels.ts';
 import type { Ray } from './trace.ts';
 
@@ -49,6 +49,7 @@ export function loadLevel(i: number) {
   G._mode = G._hold = 0;
   G._dirty = true;
   G._scr = PLAY;
+  okSince = -1;
   G._since = G._start = G._t;
   if (i > G._best) { G._best = i; save(); }
 }
@@ -74,13 +75,32 @@ export function advance(cont?: boolean) {
   else if (s === ENDING) goto(TITLE);
 }
 
-export function checkSolved() {
-  if (G._scr === PLAY && !G._mode && isSolved(G._els)) {
-    G._tot += G._t - G._start;
-    goto(SOLVED);
-    const n = G._li + 1; // progress counts the level as reached once the previous one is solved (Esc / close on the banner is safe)
-    if (n < LEVELS.length && n > G._best) { G._best = n; save(); }
-    return true;
+/** Soft snap: within 8 px / 2 deg (modulo the element's symmetry) of the authored solution -> snap exactly. */
+export function snap(e: El) {
+  const sol = LEVELS[G._li][3], i = G._els.indexOf(e);
+  for (let k = 0; k < sol.length; k += 4) if (sol[k] === i) {
+    const per = e._t === PRISM ? 120 : e._t >= MIRROR && e._t <= WALL ? 180 : 360;
+    const da = ((e._a / DEG - sol[k + 3]) % per + per * 1.5) % per - per / 2;
+    if (Math.abs(e._x - sol[k + 1]) <= 8 && Math.abs(e._y - sol[k + 2]) <= 8 && Math.abs(da) <= 2) {
+      e._x = sol[k + 1]; e._y = sol[k + 2]; e._a -= da * DEG;
+      G._dirty = true;
+      if (G._touch) navigator.vibrate?.(8); // haptic click on snap (touch only; no-op where unsupported)
+    }
   }
-  return false;
+}
+
+let okSince = -1; // time every flower became lit (-1 while any is dark)
+/** Solve when every flower is lit and either no drag / rotate gesture is active or the configuration has held for 0.4 s under the
+ *  pointer. A held solve snaps the dragged piece and ends the gesture (goto clears _mode / _hold / _sel; every pointer handler is
+ *  gated on them, so the pending pointerup and later pointermoves do nothing). A release with everything lit solves at once. */
+export function checkSolved() {
+  if (G._scr !== PLAY) return false;
+  if (!isSolved(G._els)) { okSince = -1; return false; }
+  if (okSince < 0) okSince = G._t;
+  if (G._mode) { if (G._t - okSince < 0.4) return false; if (G._sel) snap(G._sel); }
+  G._tot += G._t - G._start;
+  goto(SOLVED);
+  const n = G._li + 1; // progress counts the level as reached once the previous one is solved (Esc / close on the banner is safe)
+  if (n < LEVELS.length && n > G._best) { G._best = n; save(); }
+  return true;
 }

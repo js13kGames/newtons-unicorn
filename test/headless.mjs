@@ -112,6 +112,28 @@ for (const [w, h, name] of [[800, 360, 'phone-landscape'], [360, 800, 'phone-por
   for (const e of errs) console.log('      ' + e);
   await page.close();
 }
+// 1e. solve while held (level 2): press the prism, move it onto the authored solution and hold 0.7 s -> solved without releasing
+{
+  const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+  const errs = [];
+  page.on('console', m => { if (m.type() === 'error') errs.push('console.error: ' + m.text()); });
+  page.on('pageerror', e => errs.push('pageerror: ' + e.message));
+  await page.goto(`${base}/dev/index.html?level=2`);
+  await page.waitForTimeout(300);
+  await page.mouse.move(360, 190); await page.mouse.down(); await page.mouse.move(310, 400, { steps: 10 });
+  await page.waitForTimeout(200);
+  const early = await page.evaluate(() => NU._scr);
+  await page.waitForTimeout(500);
+  const st = await page.evaluate(() => ({ scr: NU._scr, mode: NU._mode, x: NU._els[1]._x, y: NU._els[1]._y }));
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+  const after = await page.evaluate(() => NU._scr);
+  const ok = errs.length === 0 && early === 2 && st.scr === 3 && st.mode === 0 && st.x === 310 && st.y === 400 && after === 3;
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  solve while held level 2  [scr at 0.2 s=${early} at 0.7 s=${st.scr} mode=${st.mode} prism=(${st.x},${st.y}) after release=${after}]`);
+  for (const e of errs) console.log('      ' + e);
+  await page.close();
+}
 // 2. DEV bundle: every level solved via URL
 const { LEVELS } = await import('../src/levels.ts');
 for (let n = 1; n <= LEVELS.length; n++) {

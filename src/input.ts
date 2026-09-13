@@ -1,7 +1,6 @@
 // Pointer Events (mouse + touch share one vocabulary), keyboard, HUD buttons, mobile rotate buttons, soft snap.
-import { G, PLAY, TITLE, INTRO, SOLVED, loadLevel, goto, advance, save } from './state.ts';
-import { pick, handlePos, fixedOptic, MOVE, ROT, EMITTER, PRISM, MIRROR, WALL, W, H, DEG, type El } from './elements.ts';
-import { LEVELS } from './levels.ts';
+import { G, PLAY, TITLE, INTRO, SOLVED, loadLevel, goto, advance, save, snap } from './state.ts';
+import { pick, handlePos, fixedOptic, MOVE, ROT, EMITTER, PRISM, W, H, DEG, type El } from './elements.ts';
 import { unlock, sfx, setMute, SFX_PICK, SFX_DROP, SFX_TICK, SFX_CLICK, SFX_WHOOSH, SFX_THUNK } from './audio.ts';
 
 /** HUD buttons (top-right): 0 title, 1 mute, 2 reset. */
@@ -46,19 +45,6 @@ function clamp(e: El) {
   }
   e._x = Math.max(24, Math.min(W - 24, e._x));
   e._y = Math.max(24, Math.min(H - 34, e._y));
-}
-
-/** Soft snap: within 8 px / 2 deg (modulo the element's symmetry) of the authored solution -> snap exactly. */
-function snap(e: El) {
-  const sol = LEVELS[G._li][3], i = G._els.indexOf(e);
-  for (let k = 0; k < sol.length; k += 4) if (sol[k] === i) {
-    const per = e._t === PRISM ? 120 : e._t >= MIRROR && e._t <= WALL ? 180 : 360;
-    const da = ((e._a / DEG - sol[k + 3]) % per + per * 1.5) % per - per / 2;
-    if (Math.abs(e._x - sol[k + 1]) <= 8 && Math.abs(e._y - sol[k + 2]) <= 8 && Math.abs(da) <= 2) {
-      e._x = sol[k + 1]; e._y = sol[k + 2]; e._a -= da * DEG;
-      if (G._touch) navigator.vibrate?.(8); // haptic click on snap (touch only; no-op where unsupported)
-    }
-  }
 }
 
 export function initInput(cv: HTMLCanvasElement) {
