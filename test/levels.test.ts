@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { trace } from '../src/trace.ts';
-import { mkEls, applySolution, isSolved, EMITTER, TARGET, MOVE, ROT, W, H } from '../src/elements.ts';
+import { mkEls, applySolution, isSolved, pick, handlePos, elDist, EMITTER, TARGET, MOVE, ROT, W, H, type El } from '../src/elements.ts';
 import { LEVELS } from '../src/levels.ts';
+import { HUD, MB, MB_R } from '../src/input.ts';
 
 assert.ok(LEVELS.length >= 10, 'at least 10 levels');
 
@@ -26,5 +27,29 @@ for (let i = 0; i < LEVELS.length; i++) {
     trace(els, i === LEVELS.length - 1 ? 24 : 16);
     const masks = els.filter(e => e._t === TARGET).map(e => `${e._h}${e._ok ? '' : '!'}`).join(' ');
     assert.equal(isSolved(els), true, `solution should solve the level (target masks: ${masks})`);
+  });
+
+  // Pickability guard: every interactive piece is what pick() returns at its own center and (ROT) at its rotate ring - the
+  // emitter's ring is the horn tip - and no interactive hit area (body or ring) overlaps a HUD button or, in levels that show
+  // them, a mobile rotate button. Checked in the initial layout and at the authored solution.
+  test(`level ${i + 1} "${lv[0]}": interactive pieces are pickable at their center and ring, clear of the buttons`, () => {
+    const els = mkEls(lv), hasRot = els.some(e => e._f & ROT);
+    const hit = (e: El, x: number, y: number) => { // pick's metric: signed distance to the body or the 12 px ring
+      const [hx, hy] = handlePos(e);
+      return Math.min(elDist(e, x, y), e._f & ROT ? Math.hypot(x - hx, y - hy) - 12 : 1e9);
+    };
+    const check = (label: string) => {
+      for (const e of els) if (e._f & (MOVE | ROT)) {
+        const k = els.indexOf(e);
+        assert.equal(pick(els, e._x, e._y, 0), e, `${label}: element ${k} is picked at its center`);
+        if (e._f & ROT) { const [hx, hy] = handlePos(e); assert.equal(pick(els, hx, hy, 0), e, `${label}: element ${k} is picked at its rotate ring`); }
+        if (e._t === EMITTER) assert.equal(pick(els, e._x, e._y, 0), e, `${label}: the horn tip picks the emitter`);
+        for (const b of HUD) assert.ok(hit(e, b[0], b[1]) >= 24, `${label}: element ${k} overlaps a HUD button at ${b}`);
+        if (hasRot) for (const b of MB) assert.ok(hit(e, b[0], b[1]) >= MB_R + 10, `${label}: element ${k} overlaps a mobile rotate button at ${b}`);
+      }
+    };
+    check('initial');
+    applySolution(els, lv[3]);
+    check('solved');
   });
 }
